@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "BlockWatch",
+    "slug": "blockwatch",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.blockwatch"
+    },
+    "android": {
+      "package": "com.example.blockwatch",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1118"
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow BlockWatch to show your current block, direction, and coordinates while the app is open."
+        }
+      ]
+    ]
+  }
+}
