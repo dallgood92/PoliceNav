@@ -1,4 +1,4 @@
-# BlockWatch starter
+# SquadNav
 
 A deliberately simple, glanceable iOS/Android Expo app for showing an officer's current block, street, direction of travel, and GPS quality. It also includes live squad partners and a handoff to the phone's navigation app.
 
@@ -146,7 +146,7 @@ The app asks for foreground location permission at startup. The iOS permission t
 
 Background permission is requested only after the user taps **START** under Partner Sharing. On iOS, choose **Always Allow**. If **Allow Once** was selected earlier, iOS may require changing the permission manually under Settings. Force-quitting the app can stop background updates; OS delivery frequency is never guaranteed.
 
-If permission is denied, enable location for BlockWatch in the device's Settings and reload the app.
+If permission is denied, enable location for SquadNav in the device's Settings and reload the app.
 
 ## How the live location pipeline works
 

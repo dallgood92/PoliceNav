@@ -31,7 +31,7 @@ export async function startBackgroundSharing() {
     pausesUpdatesAutomatically: false,
     showsBackgroundLocationIndicator: true,
     foregroundService: {
-      notificationTitle: 'BlockWatch location sharing',
+      notificationTitle: 'SquadNav location sharing',
       notificationBody: 'Your live location is being shared with your partners.',
       notificationColor: '#FFD54A',
     },

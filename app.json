@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BlockWatch",
+    "name": "SquadNav",
     "slug": "blockwatch",
     "scheme": "blockwatch",
     "version": "0.1.0",
@@ -28,8 +28,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow BlockWatch to show your current block and direction while the app is open.",
-          "locationAlwaysAndWhenInUsePermission": "Allow BlockWatch to securely share your live location with your selected partners while you are on duty, including when the app is in the background.",
+          "locationWhenInUsePermission": "Allow SquadNav to show your current block and direction while the app is open.",
+          "locationAlwaysAndWhenInUsePermission": "Allow SquadNav to securely share your live location with your selected partners while you are on duty, including when the app is in the background.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true

@@ -1,4 +1,4 @@
-# Deploy BlockWatch on one AWS EC2 server
+# Deploy SquadNav on one AWS EC2 server
 
 This is the recommended setup for the five-user TestFlight pilot. One EC2 instance runs the Node API, PostgreSQL, Redis, and Caddy in Docker. Caddy provides automatic HTTPS and secure WebSocket support.
 
@@ -64,7 +64,7 @@ docker version
 docker compose version
 ```
 
-## 5. Download BlockWatch
+## 5. Download SquadNav
 
 ```bash
 git clone https://github.com/dallgood92/PoliceNav.git
@@ -157,7 +157,7 @@ Do not continue until the endpoint uses HTTPS without a certificate warning.
 
 ## 9. Configure the production TestFlight build
 
-In the Expo dashboard for BlockWatch, open **Project settings > Environment variables**. Add these to the **production** environment:
+In the Expo dashboard for SquadNav, open **Project settings > Environment variables**. Add these to the **production** environment:
 
 ```text
 EXPO_PUBLIC_LOCATION_API_URL=https://api.example.com

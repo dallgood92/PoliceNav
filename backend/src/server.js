@@ -165,7 +165,7 @@ await store.subscriber.subscribe(store.PARTNER_CHANNEL, (raw) => {
   void notifyWatches(partner);
 });
 setInterval(async () => broadcast({ type: 'snapshot', partners: (await store.listPartners()).map(publicPartner) }), 15_000).unref();
-server.listen(port, () => console.log(`BlockWatch server listening on http://localhost:${port}`));
+server.listen(port, () => console.log(`SquadNav server listening on http://localhost:${port}`));
 
 async function shutdown() { sockets.close(); server.close(); await store.closeStorage(); process.exit(0); }
 process.once('SIGINT', shutdown);

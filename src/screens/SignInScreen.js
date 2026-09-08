@@ -4,7 +4,7 @@ import { colors } from '../theme/colors';
 export default function SignInScreen({ session }) {
   return (
     <View style={styles.container}>
-      <Text style={styles.brand}>BLOCKWATCH</Text>
+      <Text style={styles.brand}>SQUADNAV</Text>
       <Text style={styles.title}>Partner location for your squad</Text>
       <Text style={styles.body}>Sign in to request access to a department and see officers assigned to your squad.</Text>
       <Pressable disabled={!session.configured || !session.request} onPress={session.signIn} style={[styles.button, (!session.configured || !session.request) && styles.buttonDisabled]}>
