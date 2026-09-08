@@ -8,6 +8,7 @@ npm-debug.log*
 .env.*
 !.env.example
 !backend/.env.example
+!deploy/.env.example
 *.jks
 *.p8
 *.p12

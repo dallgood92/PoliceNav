@@ -1,180 +1,240 @@
-# AWS deployment checklist
+# Deploy BlockWatch on one AWS EC2 server
 
-This checklist deploys the BlockWatch API as an ECS Fargate service behind an HTTPS Application Load Balancer. PostgreSQL runs in RDS and live location state runs in ElastiCache for Valkey/Redis.
+This is the recommended setup for the five-user TestFlight pilot. One EC2 instance runs the Node API, PostgreSQL, Redis, and Caddy in Docker. Caddy provides automatic HTTPS and secure WebSocket support.
 
-Use one AWS Region for every resource. `us-east-2` is a reasonable default for a Denton County pilot.
+## Before opening AWS
 
-## Values to record
+You need:
 
-Keep these values in a password manager while working through the checklist:
+- A domain name you control
+- This GitHub repository
+- Access to the Expo project that owns the TestFlight build
 
-```text
-AWS_REGION=
-AWS_ACCOUNT_ID=
-ECR_IMAGE_URI=
-DATABASE_URL=
-REDIS_URL=
-LOCATION_API_TOKEN=
-API_URL=
-```
+Use `us-east-2` unless you already use another AWS Region.
 
-Do not commit their real values to Git.
+## 1. Create the EC2 instance
 
-## 1. Create the network
+In **AWS Console > EC2 > Instances > Launch instances**:
 
-1. In **VPC > Create VPC**, choose **VPC and more**.
-2. Create two public and two private subnets across two Availability Zones.
-3. Put the load balancer in the public subnets.
-4. Put RDS and ElastiCache in the private subnets.
-5. For the least expensive pilot, run the ECS task in the public subnets with **Assign public IP** enabled. Its security group will still accept inbound traffic only from the load balancer. A production private-subnet deployment needs NAT or appropriate VPC endpoints plus outbound access for Expo push delivery.
+1. Name it `blockwatch`.
+2. Select **Ubuntu Server 24.04 LTS**.
+3. Select the **64-bit Arm** image when using `t4g.small`, or the x86 image when using `t3.small`.
+4. Select `t4g.small` (recommended) or `t3.small`.
+5. Create or select an SSH key pair. Download the private key once and store it safely.
+6. Use the default VPC and a public subnet.
+7. Create a security group with:
+   - SSH TCP 22 from **My IP**, not from everywhere
+   - HTTP TCP 80 from anywhere
+   - HTTPS TCP 443 from anywhere
+8. Do not open ports 5432, 6379, or 8787.
+9. Configure 30–40 GB of encrypted gp3 storage.
+10. Launch the instance.
 
-Create these security groups:
+## 2. Assign a permanent address
 
-| Security group | Inbound rule |
-| --- | --- |
-| `blockwatch-alb` | TCP 443 from the internet; TCP 80 only for HTTPS redirect |
-| `blockwatch-api` | TCP 8787 from `blockwatch-alb` only |
-| `blockwatch-postgres` | TCP 5432 from `blockwatch-api` only |
-| `blockwatch-redis` | TCP 6379 from `blockwatch-api` only |
-
-Never expose PostgreSQL or Redis directly to the internet.
-
-## 2. Create PostgreSQL
-
-1. In **RDS > Databases > Create database**, select PostgreSQL.
-2. Use database name `blockwatch`.
-3. Select the VPC and private database subnet group.
-4. Set **Public access** to **No**.
-5. Attach `blockwatch-postgres`.
-6. Enable storage encryption and automated backups.
-7. Save the generated database password.
-
-Build the connection value from the endpoint shown by RDS:
+1. Open **EC2 > Elastic IP addresses**.
+2. Allocate an Elastic IP.
+3. Associate it with the `blockwatch` instance.
+4. At your DNS provider, create an `A` record such as:
 
 ```text
-postgresql://USERNAME:PASSWORD@RDS_ENDPOINT:5432/blockwatch?sslmode=require
+api.example.com -> EC2_ELASTIC_IP
 ```
 
-Percent-encode special characters in the username or password when placing them in a URL.
+Wait until the hostname resolves to the Elastic IP. Caddy cannot obtain the TLS certificate until ports 80 and 443 are reachable and DNS is correct.
 
-## 3. Create Redis/Valkey
+## 3. Connect to the server
 
-1. In **ElastiCache**, create a Valkey or Redis OSS cache in the same VPC.
-2. Select private subnets and attach `blockwatch-redis`.
-3. Enable encryption in transit.
-4. Enable authentication and save the authentication token.
+Select the instance and click **Connect**. The browser-based EC2 Instance Connect option is easiest. If it is unavailable, use the SSH command AWS displays.
 
-Build the connection value from its primary endpoint:
+Every remaining server command is entered in that EC2 terminal.
 
-```text
-rediss://default:AUTH_TOKEN@PRIMARY_ENDPOINT:6379
+## 4. Install Docker and Git
+
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2 git
+sudo usermod -aG docker ubuntu
 ```
 
-Use `rediss`, not `redis`, when in-transit encryption is enabled.
+Sign out of the EC2 terminal and reconnect so the Docker group takes effect. Confirm:
 
-## 4. Create backend secrets
+```bash
+docker version
+docker compose version
+```
 
-Generate a temporary pilot API token locally:
+## 5. Download BlockWatch
+
+```bash
+git clone https://github.com/dallgood92/PoliceNav.git
+cd PoliceNav
+```
+
+If the repository is private, use a GitHub deploy key or short-lived personal access token. Do not paste a long-lived GitHub password into the server.
+
+## 6. Create production secrets
+
+Create the production environment file:
+
+```bash
+cp deploy/.env.example deploy/.env
+nano deploy/.env
+```
+
+In a second terminal, generate three different values:
 
 ```bash
 openssl rand -hex 32
+openssl rand -hex 32
+openssl rand -hex 32
 ```
 
-In **Secrets Manager**, create three secrets:
+Fill in `deploy/.env`:
 
 ```text
-blockwatch/DATABASE_URL
-blockwatch/REDIS_URL
-blockwatch/LOCATION_API_TOKEN
-```
-
-Paste each complete value into its matching secret. The ECS task execution role must have `secretsmanager:GetSecretValue` permission for these three secrets.
-
-## 5. Upload the backend container
-
-1. In **ECR > Repositories**, create `blockwatch-backend`.
-2. Open the repository and select **View push commands**.
-3. Run its Docker login command.
-4. From the app repository, build and push for Fargate ARM64:
-
-```bash
-docker buildx build --platform linux/arm64 --tag ACCOUNT.dkr.ecr.REGION.amazonaws.com/blockwatch-backend:latest --push ./backend
-```
-
-Use the exact ECR URI displayed in the AWS console. If the ECS task is configured for X86_64, substitute `linux/amd64`.
-
-## 6. Create the ECS task and service
-
-1. Create an ECS cluster using AWS Fargate.
-2. Create a Fargate task definition named `blockwatch-api`.
-3. Match the task CPU architecture to the container image.
-4. Start with 0.25 vCPU and 0.5–1 GB memory for a small pilot.
-5. Add the ECR image and expose container port `8787`.
-6. Map the three Secrets Manager values to `DATABASE_URL`, `REDIS_URL`, and `LOCATION_API_TOKEN`.
-7. Add these normal environment variables:
-
-```text
-PORT=8787
+DOMAIN=api.example.com
+POSTGRES_PASSWORD=first-generated-value
+REDIS_PASSWORD=second-generated-value
+LOCATION_API_TOKEN=third-generated-value
 MOVEMENT_ALERT_METERS=152.4
 ALERT_COOLDOWN_MS=60000
 ```
 
-8. Send container logs to CloudWatch Logs.
-9. Create a service with one desired task and attach `blockwatch-api`.
+Use only generated hexadecimal passwords here. Do not commit `deploy/.env`; Git ignores it.
 
-The container runs the idempotent `db/schema.sql` migration before starting the server. It is safe for restarts and repeated deployments. For future schema changes, use a dedicated one-time migration task before increasing the service beyond one task.
+Protect it:
 
-## 7. Create HTTPS and WebSocket access
+```bash
+chmod 600 deploy/.env
+```
 
-1. Create an internet-facing Application Load Balancer in the public subnets using `blockwatch-alb`.
-2. Create an IP target group on port `8787` with health path `/health`.
-3. Attach the target group to the ECS service.
-4. Request an ACM certificate for a hostname such as `api.example.com`.
-5. Add an HTTPS listener on 443 using that certificate and forward it to the target group.
-6. Add an HTTP listener on 80 that redirects to HTTPS.
-7. Point the hostname's DNS record at the load balancer.
+Save the `LOCATION_API_TOKEN` in a password manager because the matching value is required in Expo.
 
-The same endpoint handles HTTPS API calls and the `/partners` WebSocket upgrade. Do not add sticky sessions; Redis pub/sub distributes partner updates between API tasks.
+## 7. Start the production stack
 
-Confirm that this returns JSON showing healthy PostgreSQL and Redis connections:
+Validate the configuration:
+
+```bash
+docker compose --env-file deploy/.env -f compose.production.yaml config --quiet
+```
+
+Build and start it:
+
+```bash
+docker compose --env-file deploy/.env -f compose.production.yaml up -d --build
+```
+
+Check container status:
+
+```bash
+docker compose --env-file deploy/.env -f compose.production.yaml ps
+```
+
+All four services should be running. The API container automatically creates or updates the database schema before starting.
+
+Review startup logs if anything is unhealthy:
+
+```bash
+docker compose --env-file deploy/.env -f compose.production.yaml logs --tail 100
+```
+
+## 8. Verify HTTPS
+
+From your Mac, replace the example hostname and run:
 
 ```bash
 curl https://api.example.com/health
 ```
 
-## 8. Connect the TestFlight app
+Expected shape:
 
-In the Expo project dashboard, open **Environment variables**, select **production**, and add:
+```json
+{"ok":true,"departments":0,"partners":0,"watches":0}
+```
+
+Do not continue until the endpoint uses HTTPS without a certificate warning.
+
+## 9. Configure the production TestFlight build
+
+In the Expo dashboard for BlockWatch, open **Project settings > Environment variables**. Add these to the **production** environment:
 
 ```text
 EXPO_PUBLIC_LOCATION_API_URL=https://api.example.com
-EXPO_PUBLIC_LOCATION_API_TOKEN=the-same-pilot-token-used-by-the-server
+EXPO_PUBLIC_LOCATION_API_TOKEN=the LOCATION_API_TOKEN from deploy/.env
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your iOS Google OAuth client ID
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your Android Google OAuth client ID
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your Web Google OAuth client ID
 ```
 
-The URL can be plain text. Mark the token sensitive to reduce accidental display, but remember that any `EXPO_PUBLIC_` value is embedded in the app and is not a true secret.
+The API URL and OAuth client IDs are public configuration. The shared location token is also embedded in the app and is only appropriate for this controlled pilot.
 
-Create and submit the new binary:
+Build and submit a new binary from your Mac:
 
 ```bash
+cd ~/Desktop/Learning/PoliceNav/app
 npx eas-cli build --platform ios --profile production
 npx eas-cli submit --platform ios --latest
 ```
 
-The existing TestFlight build cannot discover these values after it was built. Install the newly processed TestFlight build.
+The existing TestFlight binary cannot acquire the server address after it was compiled. Install the newly processed build.
 
-## 9. Acceptance test
+## 10. Add backups
 
-1. Confirm `/health` returns HTTP 200.
-2. Install the new build on two physical iPhones.
-3. Sign in with separate users.
-4. Create a department, request membership, approve it, and put both users in the same squad.
-5. Grant precise and Always location access.
-6. Confirm that movement on one phone changes its marker on the other.
-7. Lock one phone and confirm background updates continue.
-8. Test traffic-stop and cover-request states and the notification tap-through.
-9. Restart the ECS task and confirm department data remains.
-10. Review CloudWatch logs and configure billing and service-health alarms.
+First test a database backup on EC2:
 
-## Pilot limitation
+```bash
+sudo mkdir -p /var/backups/blockwatch
+sudo chown ubuntu:ubuntu /var/backups/blockwatch
+chmod +x deploy/backup.sh
+./deploy/backup.sh
+```
 
-The current shared bearer token is suitable only for a small controlled demonstration. Before operational use, the server must validate user identity and enforce department and squad access itself. Client-side filtering is not an authorization boundary. Cover notifications must also be restricted server-side to the appropriate squad or department.
+Then schedule it:
+
+```bash
+crontab -e
+```
+
+Add this line, replacing the path if the repository is elsewhere:
+
+```text
+15 3 * * * cd /home/ubuntu/PoliceNav && ./deploy/backup.sh >> /home/ubuntu/blockwatch-backup.log 2>&1
+```
+
+This retains 14 days of PostgreSQL dumps. Also use **AWS Data Lifecycle Manager** to create daily EBS snapshots; snapshots protect the entire server if the instance or volume is lost.
+
+## 11. Install updates later
+
+After repository changes are pushed, run on EC2:
+
+```bash
+cd ~/PoliceNav
+git pull --ff-only
+docker compose --env-file deploy/.env -f compose.production.yaml up -d --build
+```
+
+Check health again after every deployment.
+
+## 12. Test with the five phones
+
+1. Install the new TestFlight build on two phones first.
+2. Sign in using different Google accounts.
+3. Create a department on one phone.
+4. Request and approve membership from the second phone.
+5. Assign both users to the same squad.
+6. Enter each officer's real unit and call sign.
+7. Grant precise and Always location access.
+8. Confirm that partner movement updates on the other phone.
+9. Test one- and two-person units.
+10. Test traffic-stop and cover-request notifications.
+11. Lock one phone and verify that background sharing continues.
+12. Repeat for the remaining three users.
+
+## Recovery and limitations
+
+The Docker volumes survive container restarts and normal deployments. Never run `docker compose down -v`; the `-v` option deletes PostgreSQL and Redis volumes.
+
+This single server is a single point of failure. It is appropriate for a five-user pilot but not an emergency-service availability guarantee. Keep dispatch procedures as the authoritative fallback.
+
+The current shared bearer token is also only a pilot mechanism. Before operational use, the backend must validate identities and enforce department/squad visibility server-side rather than relying on filtering in the mobile client.

@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: blockwatch
+      POSTGRES_USER: blockwatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - blockwatch_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blockwatch -d blockwatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [private]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in deploy/.env}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - blockwatch_redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [private]
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgresql://blockwatch:${POSTGRES_PASSWORD}@postgres:5432/blockwatch
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      LOCATION_API_TOKEN: ${LOCATION_API_TOKEN:?Set LOCATION_API_TOKEN in deploy/.env}
+      MOVEMENT_ALERT_METERS: ${MOVEMENT_ALERT_METERS:-152.4}
+      ALERT_COOLDOWN_MS: ${ALERT_COOLDOWN_MS:-60000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [private]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - blockwatch_caddy_data:/data
+      - blockwatch_caddy_config:/config
+    depends_on: [api]
+    networks: [private]
+
+networks:
+  private:
+
+volumes:
+  blockwatch_postgres:
+  blockwatch_redis:
+  blockwatch_caddy_data:
+  blockwatch_caddy_config:
