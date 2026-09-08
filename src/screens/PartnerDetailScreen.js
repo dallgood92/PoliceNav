@@ -9,9 +9,8 @@ import { getPartnerPresence } from '../utils/presence';
 import { deriveHundredBlock, formatStreet } from '../utils/address';
 import { lastName } from '../utils/name';
 
-const KNOWN_CALL_SIGNS = { 'Dylan Allgood': '875', 'Jeremy Rogers': '861', 'Trey Humphries': '874', 'Jared Ramm': '869' };
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
-const crewCallSigns = (item) => partnerCrew(item).map((name) => name === item.name ? item.callSign || '—' : KNOWN_CALL_SIGNS[name] || '—');
+const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
 
 export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onUpdatePartner, onBack }) {
   const mapRef = useRef(null);
@@ -28,16 +27,13 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
   const availableRiders = [
-    { name: 'None — one officer', value: null },
-    { name: 'Dylan Allgood', value: 'Dylan Allgood' },
-    { name: 'Jeremy Rogers', value: 'Jeremy Rogers' },
-    { name: 'Trey Humphries', value: 'Trey Humphries' },
-    { name: 'Jared Ramm', value: 'Jared Ramm' },
-  ].filter((rider) => rider.value !== partner.name);
+    { id: 'none', name: 'None — one officer', value: null, callSign: null },
+    ...(partners || []).filter((item) => item.id !== partner.id).map((item) => ({ id: item.id, name: item.name, value: item.name, callSign: item.callSign || null })),
+  ];
   const secondRider = partner.occupants?.find((name) => name !== partner.name) || null;
   const crew = [
     `${lastName(partner.name).toUpperCase()} (${partner.callSign || '—'})`,
-    secondRider ? `${lastName(secondRider).toUpperCase()} (${KNOWN_CALL_SIGNS[secondRider] || '—'})` : null,
+    secondRider ? `${lastName(secondRider).toUpperCase()} (${partner.occupantCallSigns?.[1] || '—'})` : null,
   ].filter(Boolean).join(' / ');
 
   const launchNavigation = async (provider = preference) => {
@@ -138,10 +134,10 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           <View style={styles.unitEditor}>
             <View style={styles.unitInputs}>
               <View style={styles.unitInputGroup}><Text style={styles.unitInputLabel}>UNIT NUMBER</Text><TextInput value={partner.unit.replace(/^Unit\s*/i, '')} onChangeText={(value) => onUpdatePartner({ ...partner, unit: `Unit ${value}` })} placeholder="47" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.unitInput} /></View>
-              <View style={styles.unitInputGroup}><Text style={styles.unitInputLabel}>CALL SIGN</Text><TextInput value={partner.callSign || ''} onChangeText={(callSign) => onUpdatePartner({ ...partner, callSign })} placeholder="861" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.unitInput} /></View>
+              <View style={styles.unitInputGroup}><Text style={styles.unitInputLabel}>CALL SIGN</Text><TextInput value={partner.callSign || ''} onChangeText={(callSign) => onUpdatePartner({ ...partner, callSign, occupantCallSigns: [callSign, ...(partner.occupantCallSigns || []).slice(1)] })} placeholder="Call sign" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.unitInput} /></View>
             </View>
             <Text style={styles.riderLabel}>SECOND OFFICER</Text>
-            <View style={styles.riderChoices}>{availableRiders.map((rider) => <Pressable key={rider.name} onPress={() => onUpdatePartner({ ...partner, occupants: [partner.name, rider.value].filter(Boolean) })} style={[styles.riderChoice, secondRider === rider.value && styles.riderChoiceActive]}><Text style={styles.riderChoiceText}>{rider.value ? lastName(rider.name) : rider.name}</Text></Pressable>)}</View>
+            <View style={styles.riderChoices}>{availableRiders.map((rider) => <Pressable key={rider.id} onPress={() => onUpdatePartner({ ...partner, occupants: [partner.name, rider.value].filter(Boolean), occupantCallSigns: [partner.callSign, rider.callSign].filter(Boolean) })} style={[styles.riderChoice, secondRider === rider.value && styles.riderChoiceActive]}><Text style={styles.riderChoiceText}>{rider.value ? `${lastName(rider.name)}${rider.callSign ? ` (${rider.callSign})` : ''}` : rider.name}</Text></Pressable>)}</View>
           </View>
         ) : null}
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
@@ -184,7 +180,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 anchor={{ x: 0.5, y: 1 }}
               >
                 <View style={styles.markerStack}>
-                  <View style={[styles.partnerMarker, styles.currentUnitMarker, { backgroundColor: duty?.avatarColor || '#2563EB' }]}><Text style={styles.markerCallSign}>{currentUnitCallSigns || '875'}</Text></View>
+                  <View style={[styles.partnerMarker, styles.currentUnitMarker, { backgroundColor: duty?.avatarColor || '#2563EB' }]}><Text style={styles.markerCallSign}>{currentUnitCallSigns || '—'}</Text></View>
                   <View style={[styles.markerPointer, { borderTopColor: duty?.avatarColor || '#1677FF' }]} />
                 </View>
               </Marker>
@@ -229,11 +225,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         >
           <Text style={styles.navigateText}>OPEN DIRECTIONS</Text>
         </Pressable>
-        <Text style={styles.note}>
-          {partner.mock
-            ? 'Demo coordinates are shown until a live-location server is configured.'
-            : 'The marker updates from the live server. External directions use the latest position available when opened.'}
-        </Text>
+        <Text style={styles.note}>The marker updates from the live server. External directions use the latest position available when opened.</Text>
       </ScrollView>
     </View>
   );

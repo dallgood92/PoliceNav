@@ -27,11 +27,11 @@ export function useOfficerSession() {
       .then(async (saved) => {
         if (!saved) return;
         const profile = JSON.parse(saved);
-        if (profile.id === 'demo-admin' && profile.name !== 'Dylan Allgood') {
-          const updated = (await upsertOfficer({ ...profile, name: 'Dylan Allgood', email: 'dylan@blockwatch.local' })).user;
-          await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-          setOfficer(updated);
-        } else setOfficer(profile);
+        if (profile.id === 'demo-admin') {
+          await AsyncStorage.removeItem(SESSION_KEY);
+          return;
+        }
+        setOfficer(profile);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -57,7 +57,10 @@ export function useOfficerSession() {
 
   const signIn = async () => {
     setError(null);
-    if (!configured) return signInProfile({ id: 'demo-admin', email: 'dylan@blockwatch.local', name: 'Dylan Allgood' });
+    if (!configured) {
+      setError('Google sign-in is not configured for this build.');
+      return;
+    }
     await promptAsync();
   };
 

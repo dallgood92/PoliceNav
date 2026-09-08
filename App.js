@@ -29,7 +29,7 @@ export default function App() {
   const workspace = workspaceState.workspace;
   const membershipsEnabled = isLocationBackendConfigured();
   const visiblePartners = membershipsEnabled && workspace?.department
-    ? partners.filter((partner) => (partner.mock || workspace.visibleDeviceIds.includes(partner.id)) && partner.id !== workspace.user.deviceId)
+    ? partners.filter((partner) => workspace.visibleDeviceIds.includes(partner.id) && partner.id !== workspace.user.deviceId)
     : partners;
   const selectedPartner = visiblePartners.find((partner) => partner.id === selectedPartnerId);
 

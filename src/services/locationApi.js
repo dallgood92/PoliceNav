@@ -35,15 +35,17 @@ export async function publishLocation(location) {
   const savedSession = await AsyncStorage.getItem('@blockwatch/officer-session');
   let signedInOfficer = null;
   try { signedInOfficer = savedSession ? JSON.parse(savedSession) : null; } catch {}
+  if (!signedInOfficer?.name) throw new Error('Sign in before sharing your location.');
   const duty = await loadDutyAssignment();
   const payload = {
     id: await getDeviceId(),
-    name: signedInOfficer?.name || process.env.EXPO_PUBLIC_OFFICER_NAME || 'Demo Officer',
+    name: signedInOfficer.name,
     unit: `Unit ${duty.unitNumber}`,
     callSign: duty.callSign,
     avatarColor: duty.avatarColor,
     dutyStatus: duty.status,
-    occupants: [signedInOfficer?.name || 'Dylan Allgood', duty.secondOfficer].filter(Boolean),
+    occupants: [signedInOfficer.name, duty.secondOfficer].filter(Boolean),
+    occupantCallSigns: [duty.callSign, duty.secondOfficerCallSign].filter(Boolean),
     location: {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,

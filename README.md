@@ -1,6 +1,6 @@
 # BlockWatch starter
 
-A deliberately simple, glanceable iOS/Android Expo app for showing an officer's current block, street, direction of travel, GPS quality, and coordinates. It also includes mocked partners and a handoff to the phone's navigation app.
+A deliberately simple, glanceable iOS/Android Expo app for showing an officer's current block, street, direction of travel, and GPS quality. It also includes live squad partners and a handoff to the phone's navigation app.
 
 > Prototype only. Do not rely on this starter for dispatch, emergency response, officer safety, evidence, or other operational decisions. GPS, compass, reverse-geocoded addresses, and derived block numbers can be delayed, missing, or wrong.
 
@@ -13,7 +13,7 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - Reverse-geocoded street/locality, with only the slower address lookup throttled to roughly every 12 meters or 5 seconds
 - Derived hundred-block when a usable street number exists (`1237` becomes `1200 BLOCK`)
 - GPS accuracy and the timestamp supplied with the latest location
-- Live partner WebSocket subscription with mocked fallback data, online/offline presence, a moving in-app map, and a remembered Apple Maps/Google Maps preference
+- Live partner WebSocket subscription with online/offline presence, a moving in-app map, an empty state before partners share, and a remembered Apple Maps/Google Maps preference
 - Explicit on-duty background-sharing control that uploads navigation-grade GPS fixes over HTTPS
 - A small Node.js WebSocket/HTTP reference server under `backend/`
 - Push-assisted direction refresh: opening directions arms a movement watch; tapping the iOS alert fetches the newest partner position and reopens the selected map
@@ -77,15 +77,13 @@ The client intentionally has no production server address checked into source co
 
 ```text
 EXPO_PUBLIC_LOCATION_API_URL=https://your-deployed-server.example.com
-EXPO_PUBLIC_LOCATION_API_TOKEN=your-temporary-demo-token
-EXPO_PUBLIC_OFFICER_NAME=Johnson
-EXPO_PUBLIC_UNIT_NAME=Unit 214
+EXPO_PUBLIC_LOCATION_API_TOKEN=your-temporary-pilot-token
 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com
 EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 ```
 
-When Google client IDs are absent, the sign-in screen clearly offers a demo identity. Real Google sign-in requires OAuth clients configured for the app's iOS bundle identifier, Android package/signing certificate, and `blockwatch` redirect scheme. The client IDs are public identifiers; do not place a Google client secret in the mobile app.
+Google sign-in requires OAuth clients configured for the app's iOS bundle identifier, Android package/signing certificate, and `blockwatch` redirect scheme. A build without those client IDs shows a configuration message and cannot create a placeholder user. The client IDs are public identifiers; do not place a Google client secret in the mobile app.
 
 The department creator becomes its first admin and is placed in a default **Patrol** squad. Other signed-in users request access, an admin approves them, and then assigns them to one or more squads. The partner dashboard filters the live location stream to device IDs belonging to the signed-in officer's squads.
 
@@ -126,8 +124,6 @@ Partner phone background GPS
 When a user opens external directions, the phone registers for Expo push notifications and the server watches that partner's movement from the handed-off destination. After the partner moves 152.4 meters (500 feet), with a one-minute alert cooldown, the server sends an alert. Tapping it opens PoliceNav briefly, fetches the latest server position, and reopens Apple Maps or Google Maps with the refreshed destination. Configure `MOVEMENT_ALERT_METERS` and `ALERT_COOLDOWN_MS` on the server to tune those values.
 
 Each officer can edit their current unit number, call sign, and optional second rider from the dashboard. Units support one or two displayed occupants. Status can be set to clear, traffic stop, or cover requested. Traffic stops use a yellow highlighted border; cover requests use red. A transition into cover-requested status sends a high-priority push alert to registered partner devices. Tapping the alert opens directions to the requesting officer's latest server location. iOS does not permit an app to launch Maps without user interaction while another app is active or the phone is locked.
-
-The named officer records bundled in `partnerService.js` are local demo data only. They demonstrate normal, traffic-stop, and cover-requested presentation without sending a real cover alert.
 
 Push alerts require a physical device and a new EAS development/TestFlight build with valid Apple push credentials. They do not work as remote push alerts in the iOS Simulator. Expo and APNs provide best-effort delivery rather than an emergency-service SLA, so the live in-app position and dispatch procedures remain the authoritative fallback.
 
@@ -177,7 +173,7 @@ src/
 
 ## Backend-ready partner design
 
-`src/services/partnerService.js` connects to the live WebSocket when a backend URL is configured and otherwise loads demo partners. It reconnects automatically and retains the last good snapshot during brief interruptions.
+`src/services/partnerService.js` connects to the live WebSocket when a backend URL is configured. Without a backend—or before squad partners have shared—the partner list remains empty. It reconnects automatically and retains the last good snapshot during brief interruptions.
 
 Partner presence is based on both a backend-reported connection state and heartbeat freshness. A partner is treated as offline when no heartbeat has arrived for 45 seconds, even if the last message claimed the device was online. Signal quality (`good` or `weak`) should eventually come from the partner device/backend; it must not be inferred solely from GPS accuracy.
 
@@ -191,7 +187,7 @@ Before using partner location operationally, add freshness indicators, stale/off
 
 ## Roadmap
 
-1. **Real-time partner sharing** — replace demo credentials with agency authentication; add team authorization and explicit shift/session membership.
+1. **Real-time partner sharing** — replace the temporary shared pilot credential with agency authentication; add team authorization and explicit shift/session membership.
 2. **Backend deployment** — move the local PostgreSQL/Redis stack to managed services; add validated schemas, backups, rate limits, monitoring, and audit controls.
 3. **Authentication and authorization** — agency identity provider, short-lived tokens, team membership, device enrollment, remote revocation, and least-privilege access.
 4. **Background location** — field-test battery tuning and OS delivery behavior; complete store-policy disclosures and agency privacy review.
@@ -205,7 +201,7 @@ Before using partner location operationally, add freshness indicators, stale/off
 - `src/hooks/useLiveLocation.js` — foreground location, heading, and throttled reverse geocoding
 - `src/utils/direction.js` — course/heading selection and compass labels
 - `src/utils/address.js` — address formatting and hundred-block derivation
-- `src/services/partnerService.js` — mocked partner adapter to replace with WebSockets
+- `src/services/partnerService.js` — live WebSocket partner subscription
 - `src/services/navigationService.js` — native maps handoff
 - `src/tasks/backgroundLocationTask.js` — global background GPS task
 - `src/services/locationApi.js` — authenticated location upload and WebSocket configuration
@@ -219,4 +215,4 @@ Before using partner location operationally, add freshness indicators, stale/off
 - GPS course is only selected when reported speed is at least 1.5 m/s (about 3.4 mph); below that, the display uses compass heading.
 - `timeInterval` applies to Android. iOS decides update timing based on the requested accuracy and distance filter.
 - Continuous navigation-grade accuracy increases battery use.
-- Mock partner coordinates are demo data near Denton, Texas and are clearly labeled in the UI.
+- No officer identities, call signs, units, or partner coordinates are bundled with the app.

@@ -15,9 +15,8 @@ export default function PartnerRow({ partner, userLocation, onPress }) {
     ? 'COVER REQUESTED'
     : partner.dutyStatus === 'traffic_stop' ? 'TRAFFIC STOP' : null;
   const highlighted = Boolean(alertStyle);
-  const knownCallSigns = { 'Dylan Allgood': '875', 'Jeremy Rogers': '861', 'Trey Humphries': '874', 'Jared Ramm': '869' };
   const crew = (partner.occupants?.length ? partner.occupants : [partner.name])
-    .map((name) => ({ name: lastName(name), callSign: name === partner.name ? partner.callSign || '—' : knownCallSigns[name] || '—' }));
+    .map((name, index) => ({ name: lastName(name), callSign: partner.occupantCallSigns?.[index] || (index === 0 ? partner.callSign : null) || '—' }));
 
   return (
     <Pressable

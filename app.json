@@ -6,7 +6,6 @@
     "version": "0.1.0",
     "orientation": "default",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.example.blockwatch",

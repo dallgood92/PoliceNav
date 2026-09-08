@@ -3,10 +3,9 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { lastName } from '../utils/name';
 
-const partners = ['None — one officer', 'Jeremy Rogers', 'Trey Humphries', 'Jared Ramm'];
 const avatarColors = ['#2563EB', '#059669', '#7C3AED', '#D97706', '#DC2626', '#0F766E', '#DB2777', '#475569'];
 
-export default function DutyAssignmentCard({ officer, assignment, onChange }) {
+export default function DutyAssignmentCard({ officer, partners = [], assignment, onChange }) {
   const [editing, setEditing] = useState(false);
   const statusLabel = assignment.status === 'cover_requested' ? 'COVER REQUESTED' : assignment.status === 'traffic_stop' ? 'TRAFFIC STOP' : 'AVAILABLE';
   const highlighted = assignment.status !== 'available';
@@ -18,23 +17,20 @@ export default function DutyAssignmentCard({ officer, assignment, onChange }) {
       </View>
       <Text style={[styles.officers, highlighted && styles.alertInk]}>
         {assignment.secondOfficer
-          ? `${lastName(officer?.name || 'Dylan Allgood').toUpperCase()} (${assignment.callSign}) / ${lastName(assignment.secondOfficer).toUpperCase()} (${assignment.secondOfficerCallSign})`
-          : `${lastName(officer?.name || 'Dylan Allgood').toUpperCase()} (${assignment.callSign})`}
+          ? `${lastName(officer?.name || 'OFFICER').toUpperCase()} (${assignment.callSign || '—'}) / ${lastName(assignment.secondOfficer).toUpperCase()} (${assignment.secondOfficerCallSign || '—'})`
+          : `${lastName(officer?.name || 'OFFICER').toUpperCase()} (${assignment.callSign || '—'})`}
       </Text>
       {editing ? (
         <View style={styles.editor}>
           <View style={styles.inputs}>
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>UNIT NUMBER</Text><TextInput value={assignment.unitNumber} onChangeText={(unitNumber) => onChange({ ...assignment, unitNumber })} placeholder="47" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.input} /></View>
-            <View style={styles.inputGroup}><Text style={styles.inputLabel}>YOUR CALL SIGN</Text><TextInput value={assignment.callSign} onChangeText={(callSign) => onChange({ ...assignment, callSign })} placeholder="875" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.input} /></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>YOUR CALL SIGN</Text><TextInput value={assignment.callSign} onChangeText={(callSign) => onChange({ ...assignment, callSign })} placeholder="Call sign" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.input} /></View>
           </View>
           <Text style={styles.label}>MY AVATAR COLOR</Text>
           <View style={styles.colorRow}>{avatarColors.map((avatarColor) => <Pressable accessibilityLabel={`Choose avatar color ${avatarColor}`} key={avatarColor} onPress={() => onChange({ ...assignment, avatarColor })} style={[styles.colorChoice, { backgroundColor: avatarColor }, assignment.avatarColor === avatarColor && styles.colorSelected]} />)}</View>
           <Text style={styles.label}>SECOND OFFICER</Text>
-          {partners.map((name) => {
-            const value = name.startsWith('None') ? null : name;
-            const callSigns = { 'Jeremy Rogers': '861', 'Trey Humphries': '874', 'Jared Ramm': '869' };
-            return <Pressable key={name} onPress={() => onChange({ ...assignment, secondOfficer: value, secondOfficerCallSign: value ? callSigns[value] : null })} style={[styles.choice, assignment.secondOfficer === value && styles.choiceActive]}><Text style={styles.choiceText}>{value ? lastName(value) : name}</Text></Pressable>;
-          })}
+          <Pressable onPress={() => onChange({ ...assignment, secondOfficer: null, secondOfficerCallSign: null })} style={[styles.choice, !assignment.secondOfficer && styles.choiceActive]}><Text style={styles.choiceText}>None — one officer</Text></Pressable>
+          {partners.map((partner) => <Pressable key={partner.id} onPress={() => onChange({ ...assignment, secondOfficer: partner.name, secondOfficerCallSign: partner.callSign || null })} style={[styles.choice, assignment.secondOfficer === partner.name && styles.choiceActive]}><Text style={styles.choiceText}>{lastName(partner.name)}{partner.callSign ? ` (${partner.callSign})` : ''}</Text></Pressable>)}
         </View>
       ) : null}
       <Text style={[styles.label, highlighted && styles.alertInk]}>MY STATUS · {statusLabel}</Text>
