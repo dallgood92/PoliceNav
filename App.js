@@ -1,25 +1,95 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import HomeScreen from './src/screens/HomeScreen';
 import PartnerDetailScreen from './src/screens/PartnerDetailScreen';
+import { usePartners } from './src/hooks/usePartners';
+import { useLiveLocation } from './src/hooks/useLiveLocation';
 import { colors } from './src/theme/colors';
+import { observeDirectionNotifications, registerForCoverAlerts } from './src/services/notificationService';
+import { openNavigationTo } from './src/services/navigationService';
+import { useOfficerSession } from './src/hooks/useOfficerSession';
+import { useDepartmentWorkspace } from './src/hooks/useDepartmentWorkspace';
+import { isLocationBackendConfigured, publishLocation } from './src/services/locationApi';
+import SignInScreen from './src/screens/SignInScreen';
+import DepartmentScreen from './src/screens/DepartmentScreen';
+import { useDutyAssignment } from './src/hooks/useDutyAssignment';
+import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
 
 export default function App() {
-  const [selectedPartner, setSelectedPartner] = useState(null);
+  const [selectedPartnerId, setSelectedPartnerId] = useState(null);
+  const [showDepartment, setShowDepartment] = useState(false);
+  const partnerState = usePartners();
+  const partners = partnerState.partners;
+  const live = useLiveLocation();
+  const session = useOfficerSession();
+  const duty = useDutyAssignment();
+  const workspaceState = useDepartmentWorkspace(session.officer?.id);
+  const workspace = workspaceState.workspace;
+  const membershipsEnabled = isLocationBackendConfigured();
+  const visiblePartners = membershipsEnabled && workspace?.department
+    ? partners.filter((partner) => (partner.mock || workspace.visibleDeviceIds.includes(partner.id)) && partner.id !== workspace.user.deviceId)
+    : partners;
+  const selectedPartner = visiblePartners.find((partner) => partner.id === selectedPartnerId);
+
+  useEffect(() => observeDirectionNotifications(
+    (partner, provider) => openNavigationTo(partner, provider, { armAlert: false }),
+  ), []);
+
+  useEffect(() => {
+    if (session.officer) registerForCoverAlerts().catch(() => {});
+  }, [session.officer]);
+
+  useEffect(() => {
+    if (!session.officer || !workspace?.department) return;
+    const enableSharing = async () => {
+      if (await backgroundSharingStatus() === 'stopped') await startBackgroundSharing();
+    };
+    enableSharing().catch(() => {});
+  }, [session.officer, workspace?.department?.id]);
+
+  const changeDuty = async (next) => {
+    const statusChanged = next.status !== duty.assignment.status;
+    await duty.setAssignment(next);
+    if (statusChanged && live.location) publishLocation(live.location).catch(() => {});
+  };
 
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.app} edges={['top', 'right', 'bottom', 'left']}>
         <StatusBar style="light" />
-        {selectedPartner ? (
+        {membershipsEnabled && !session.officer ? (
+          <SignInScreen session={session} />
+        ) : membershipsEnabled && session.officer && (!workspace?.department || showDepartment) ? (
+          <DepartmentScreen
+            officer={session.officer}
+            workspace={workspace}
+            refresh={workspaceState.refresh}
+            onDone={() => setShowDepartment(false)}
+            onSignOut={session.signOut}
+          />
+        ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
-            onBack={() => setSelectedPartner(null)}
+            partners={visiblePartners}
+            duty={duty.assignment}
+            userLocation={live.location}
+            onUpdatePartner={partnerState.updatePartner}
+            onBack={() => setSelectedPartnerId(null)}
           />
         ) : (
-          <HomeScreen onSelectPartner={setSelectedPartner} />
+          <HomeScreen
+            live={live}
+            partners={visiblePartners}
+            department={workspace?.department}
+            squads={workspace?.squads}
+            officer={session.officer}
+            duty={duty.assignment}
+            onDutyChange={changeDuty}
+            onManageDepartment={() => setShowDepartment(true)}
+            onSelectPartner={(partner) => setSelectedPartnerId(partner.id)}
+          />
         )}
       </SafeAreaView>
     </SafeAreaProvider>

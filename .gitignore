@@ -4,6 +4,10 @@ dist/
 web-build/
 npm-debug.log*
 .DS_Store
+.env
+.env.*
+!.env.example
+!backend/.env.example
 *.jks
 *.p8
 *.p12

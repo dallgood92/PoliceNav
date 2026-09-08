@@ -2,27 +2,46 @@
   "expo": {
     "name": "BlockWatch",
     "slug": "blockwatch",
+    "scheme": "blockwatch",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.example.blockwatch"
+      "bundleIdentifier": "com.example.blockwatch",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.example.blockwatch",
       "adaptiveIcon": {
         "backgroundColor": "#0B1118"
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
+      "expo-notifications",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow BlockWatch to show your current block, direction, and coordinates while the app is open."
+          "locationWhenInUsePermission": "Allow BlockWatch to show your current block and direction while the app is open.",
+          "locationAlwaysAndWhenInUsePermission": "Allow BlockWatch to securely share your live location with your selected partners while you are on duty, including when the app is in the background.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
-      ]
-    ]
+      ],
+      "expo-web-browser"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6636de7a-54ed-47bf-bdca-339f265e6824"
+      }
+    }
   }
 }

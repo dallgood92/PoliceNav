@@ -1,0 +1,17 @@
+{
+  "name": "blockwatch-location-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node --env-file-if-exists=.env scripts/migrate.js",
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "start:production": "npm run migrate && npm start",
+    "check": "node --check src/server.js && node --check src/storage.js && node --check scripts/migrate.js"
+  },
+  "dependencies": {
+    "pg": "^8.16.3",
+    "redis": "^5.8.2",
+    "ws": "^8.18.3"
+  }
+}

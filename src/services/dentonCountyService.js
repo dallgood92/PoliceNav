@@ -90,6 +90,18 @@ function nearestRoad(features, location) {
     .sort((a, b) => a.distanceMeters - b.distanceMeters)[0] || null;
 }
 
+function nearbyCrossStreet(features, location, primaryRoad) {
+  const primaryName = normalizedStreet(primaryRoad?.attributes?.Street);
+  return features
+    .filter((feature) => {
+      const name = normalizedStreet(feature.attributes?.Street);
+      return name && name !== primaryName;
+    })
+    .map((feature) => ({ ...feature, distanceMeters: distanceToRoad(feature, location) }))
+    .filter((feature) => feature.distanceMeters <= 90)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)[0] || null;
+}
+
 function clean(value) {
   return typeof value === 'string' ? value.trim() : value;
 }
@@ -170,6 +182,7 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
   ]);
 
   const road = nearestRoad(roadFeatures, location);
+  const crossStreet = nearbyCrossStreet(roadFeatures, location, road);
   const roadStreet = normalizedStreet(road?.attributes?.Street);
   const sameRoadAddresses = addressFeatures.filter(
     (feature) => normalizedStreet(feature.attributes.STREET) === roadStreet,
@@ -187,6 +200,13 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
       ? {
           name: clean(road.attributes.Street),
           distanceMeters: road.distanceMeters,
+          source: 'Denton County Roads GIS',
+        }
+      : null,
+    crossStreet: crossStreet
+      ? {
+          name: clean(crossStreet.attributes.Street),
+          distanceMeters: crossStreet.distanceMeters,
           source: 'Denton County Roads GIS',
         }
       : null,
