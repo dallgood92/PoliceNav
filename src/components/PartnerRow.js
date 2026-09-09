@@ -57,10 +57,10 @@ export default function PartnerRow({ partner, userLocation, onPress, compact = f
         </View>
         <Text style={[styles.unit, dense && styles.denseMeta, highlighted && styles.alertInk]}>{partner.unit}{dense && dutyLabel ? ` · ${dutyLabel}` : ''}</Text>
         {dutyLabel && !dense ? <Text style={[styles.duty, highlighted && styles.alertInk]}>{dutyLabel}</Text> : null}
-        {!tile && !compressed ? <View style={[styles.presenceRow, dense && styles.densePresence]}>
+        <View style={[styles.presenceRow, dense && styles.densePresence, tile && styles.tilePresence, compressed && styles.compressedPresence]}>
           <View style={[styles.presenceDot, styles[`${presence.quality}Dot`], highlighted && styles.alertPresenceDot]} />
-          <Text numberOfLines={1} style={[styles.presence, dense && styles.denseMeta, styles[`${presence.quality}Text`], highlighted && styles.alertInk]}>{presence.label}</Text>
-        </View> : null}
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.presence, dense && styles.denseMeta, tile && styles.tilePresenceText, compressed && styles.compressedPresenceText, styles[`${presence.quality}Text`], highlighted && styles.alertInk]}>{presence.label}</Text>
+        </View>
       </View>
       {!tile ? <Text style={[styles.distance, dense && styles.denseDistance, highlighted && styles.alertInk]}>{formatDistance(distance)}</Text> : null}
       {!tile ? <Text style={[styles.chevron, highlighted && styles.alertInk]}>›</Text> : null}
@@ -106,6 +106,8 @@ const styles = StyleSheet.create({
   crewRow: { flex: 1, flexDirection: 'column' },
   crewMember: { minWidth: 0, marginBottom: 2 },
   presenceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  tilePresence: { marginTop: 1 },
+  compressedPresence: { marginTop: 0 },
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 7 },
   alertPresenceDot: { backgroundColor: colors.background },
   goodDot: { backgroundColor: colors.success },
@@ -117,6 +119,8 @@ const styles = StyleSheet.create({
   unit: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 3 },
   duty: { fontSize: 11, fontWeight: '900', marginTop: 3, letterSpacing: 0.6 },
   presence: { fontSize: 11, fontWeight: '700' },
+  tilePresenceText: { fontSize: 8, lineHeight: 9 },
+  compressedPresenceText: { fontSize: 8, lineHeight: 9 },
   denseMeta: { fontSize: 9, lineHeight: 11, marginTop: 1 }, densePresence: { marginTop: 1 },
   goodText: { color: colors.success },
   weakText: { color: colors.warning },
