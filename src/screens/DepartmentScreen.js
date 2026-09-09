@@ -49,9 +49,13 @@ export default function DepartmentScreen({ officer, workspace, refresh, onDone, 
               </Pressable>
             </View>
           ))}
-          <Text style={styles.section}>CREATE A DEPARTMENT</Text>
-          <TextInput value={departmentName} onChangeText={setDepartmentName} placeholder="Department name" placeholderTextColor={colors.muted} style={styles.input} />
-          <Pressable onPress={() => run(() => createDepartment(departmentName, officer.id), 'Department created.')} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE DEPARTMENT</Text></Pressable>
+          {workspace?.canManage ? (
+            <>
+              <Text style={styles.section}>CREATE A DEPARTMENT</Text>
+              <TextInput value={departmentName} onChangeText={setDepartmentName} placeholder="Department name" placeholderTextColor={colors.muted} style={styles.input} />
+              <Pressable onPress={() => run(() => createDepartment(departmentName, officer.id), 'Department created.')} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE DEPARTMENT</Text></Pressable>
+            </>
+          ) : null}
         </>
       ) : (
         <>
