@@ -4,13 +4,13 @@ import * as store from './storage.js';
 
 const port = Number(process.env.PORT || 8787);
 const token = process.env.LOCATION_API_TOKEN;
-const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
+const ownerUserId = process.env.OWNER_USER_ID?.trim();
 const clients = new Set();
 const OFFLINE_MS = 45_000;
 const MOVE_METERS = Number(process.env.MOVEMENT_ALERT_METERS || 152.4);
 const ALERT_COOLDOWN = Number(process.env.ALERT_COOLDOWN_MS || 60_000);
 let sequence = 1;
-if (!token || !ownerEmail || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, OWNER_EMAIL, DATABASE_URL, and REDIS_URL are required.');
+if (!token || !ownerUserId || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, OWNER_USER_ID, DATABASE_URL, and REDIS_URL are required.');
 
 const reply = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
 const authorized = (req) => req.headers.authorization === `Bearer ${token}`;
@@ -88,7 +88,7 @@ const server = createServer(async (req, res) => {
     }
     const workspaceMatch = url.pathname.match(/^\/users\/([^/]+)\/workspace$/);
     if (req.method === 'GET' && workspaceMatch) {
-      const workspace = await store.getWorkspace(decodeURIComponent(workspaceMatch[1]), ownerEmail);
+      const workspace = await store.getWorkspace(decodeURIComponent(workspaceMatch[1]), ownerUserId);
       return workspace ? reply(res, 200, workspace) : reply(res, 404, { error: 'User not found.' });
     }
 
@@ -99,7 +99,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'POST' && url.pathname === '/departments') {
       if (!body?.creatorUserId || typeof body?.name !== 'string' || body.name.trim().length < 2) return reply(res, 400, { error: 'Invalid department.' });
-      const workspace = await store.createDepartment({ id: id('dept'), squadId: id('squad'), name: body.name.trim(), creatorUserId: body.creatorUserId, createdAt: Date.now(), ownerEmail });
+      const workspace = await store.createDepartment({ id: id('dept'), squadId: id('squad'), name: body.name.trim(), creatorUserId: body.creatorUserId, createdAt: Date.now(), ownerUserId });
       return workspace ? reply(res, 201, workspace) : reply(res, 409, { error: 'User already belongs to a department.' });
     }
     const joinMatch = url.pathname.match(/^\/departments\/([^/]+)\/requests$/);
@@ -108,16 +108,16 @@ const server = createServer(async (req, res) => {
       return request ? reply(res, 201, { request }) : reply(res, 400, { error: 'Cannot request membership.' });
     }
     const approveMatch = url.pathname.match(/^\/department-requests\/([^/]+)\/approve$/);
-    if (req.method === 'POST' && approveMatch) return await store.approveDepartmentRequest(approveMatch[1], body?.adminUserId, ownerEmail) ? reply(res, 200, { approved: true }) : reply(res, 403, { error: 'Not allowed.' });
+    if (req.method === 'POST' && approveMatch) return await store.approveDepartmentRequest(approveMatch[1], body?.adminUserId, ownerUserId) ? reply(res, 200, { approved: true }) : reply(res, 403, { error: 'Not allowed.' });
     const createSquadMatch = url.pathname.match(/^\/departments\/([^/]+)\/squads$/);
     if (req.method === 'POST' && createSquadMatch) {
       if (typeof body?.name !== 'string' || !body.name.trim()) return reply(res, 400, { error: 'Squad name is required.' });
-      const squad = await store.createSquad({ id: id('squad'), departmentId: createSquadMatch[1], name: body.name.trim(), adminUserId: body?.adminUserId, ownerEmail });
+      const squad = await store.createSquad({ id: id('squad'), departmentId: createSquadMatch[1], name: body.name.trim(), adminUserId: body?.adminUserId, ownerUserId });
       return squad ? reply(res, 201, { squad }) : reply(res, 403, { error: 'Not allowed.' });
     }
     const memberMatch = url.pathname.match(/^\/squads\/([^/]+)\/members$/);
     if (req.method === 'POST' && memberMatch) {
-      const squad = await store.addSquadMember({ squadId: memberMatch[1], adminUserId: body?.adminUserId, userId: body?.userId, ownerEmail });
+      const squad = await store.addSquadMember({ squadId: memberMatch[1], adminUserId: body?.adminUserId, userId: body?.userId, ownerUserId });
       return squad ? reply(res, 200, { squad }) : reply(res, 403, { error: 'Not allowed.' });
     }
     if (req.method === 'POST' && url.pathname === '/devices/register') {

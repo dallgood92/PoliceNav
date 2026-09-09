@@ -91,10 +91,10 @@ export async function listDepartments() {
   return result.rows.map(departmentFromRow);
 }
 
-export async function getWorkspace(userId, ownerEmail) {
+export async function getWorkspace(userId, ownerUserId) {
   const user = await getUser(userId);
   if (!user) return null;
-  const canManage = user.email?.toLowerCase() === ownerEmail;
+  const canManage = user.id === ownerUserId;
   const [departmentResult, squadsResult, requestResult] = await Promise.all([
     user.departmentId ? database.query('SELECT * FROM departments WHERE id = $1', [user.departmentId]) : { rows: [] },
     database.query(
@@ -146,13 +146,13 @@ export async function getWorkspace(userId, ownerEmail) {
   };
 }
 
-export async function createDepartment({ id, name, creatorUserId, squadId, createdAt, ownerEmail }) {
+export async function createDepartment({ id, name, creatorUserId, squadId, createdAt, ownerUserId }) {
   const client = await database.connect();
   try {
     await client.query('BEGIN');
     await client.query('SET CONSTRAINTS ALL DEFERRED');
     const creator = await getUser(creatorUserId, client);
-    if (!creator || creator.departmentId || creator.email?.toLowerCase() !== ownerEmail) {
+    if (!creator || creator.departmentId || creator.id !== ownerUserId) {
       await client.query('ROLLBACK');
       return null;
     }
@@ -183,17 +183,17 @@ export async function createDepartmentRequest({ id, departmentId, userId, create
   return requestFromRow(result.rows[0]);
 }
 
-export async function approveDepartmentRequest(requestId, adminUserId, ownerEmail) {
+export async function approveDepartmentRequest(requestId, adminUserId, ownerUserId) {
   const client = await database.connect();
   try {
     await client.query('BEGIN');
     const result = await client.query(
-      `SELECT r.*, a.role AS admin_role, a.email AS admin_email, a.department_id AS admin_department
+      `SELECT r.*, a.role AS admin_role, a.department_id AS admin_department
        FROM department_requests r JOIN users a ON a.id = $2 WHERE r.id = $1 FOR UPDATE`,
       [requestId, adminUserId],
     );
     const request = result.rows[0];
-    if (!request || request.status !== 'pending' || request.admin_role !== 'admin' || request.admin_email?.toLowerCase() !== ownerEmail || request.admin_department !== request.department_id) {
+    if (!request || request.status !== 'pending' || adminUserId !== ownerUserId || request.admin_role !== 'admin' || request.admin_department !== request.department_id) {
       await client.query('ROLLBACK');
       return false;
     }
@@ -209,21 +209,21 @@ export async function approveDepartmentRequest(requestId, adminUserId, ownerEmai
   }
 }
 
-export async function createSquad({ id, departmentId, name, adminUserId, ownerEmail }) {
+export async function createSquad({ id, departmentId, name, adminUserId, ownerUserId }) {
   const admin = await getUser(adminUserId);
-  if (admin?.role !== 'admin' || admin.email?.toLowerCase() !== ownerEmail || admin.departmentId !== departmentId) return null;
+  if (adminUserId !== ownerUserId || admin?.role !== 'admin' || admin.departmentId !== departmentId) return null;
   const result = await database.query('INSERT INTO squads (id, department_id, name) VALUES ($1, $2, $3) RETURNING *', [id, departmentId, name]);
   return squadFromRow({ ...result.rows[0], member_ids: [] });
 }
 
-export async function addSquadMember({ squadId, userId, adminUserId, ownerEmail }) {
+export async function addSquadMember({ squadId, userId, adminUserId, ownerUserId }) {
   const result = await database.query(
-    `SELECT s.*, a.role AS admin_role, a.email AS admin_email, a.department_id AS admin_department, u.department_id AS member_department
+    `SELECT s.*, a.role AS admin_role, a.department_id AS admin_department, u.department_id AS member_department
      FROM squads s JOIN users a ON a.id = $2 JOIN users u ON u.id = $3 WHERE s.id = $1`,
     [squadId, adminUserId, userId],
   );
   const row = result.rows[0];
-  if (!row || row.admin_role !== 'admin' || row.admin_email?.toLowerCase() !== ownerEmail || row.admin_department !== row.department_id || row.member_department !== row.department_id) return null;
+  if (!row || adminUserId !== ownerUserId || row.admin_role !== 'admin' || row.admin_department !== row.department_id || row.member_department !== row.department_id) return null;
   await database.query('INSERT INTO squad_members (squad_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [squadId, userId]);
   const members = await database.query('SELECT user_id FROM squad_members WHERE squad_id = $1 ORDER BY user_id', [squadId]);
   return squadFromRow({ ...row, member_ids: members.rows.map((item) => item.user_id) });

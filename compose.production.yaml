@@ -39,7 +39,7 @@ services:
       DATABASE_URL: postgresql://blockwatch:${POSTGRES_PASSWORD}@postgres:5432/blockwatch
       REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
       LOCATION_API_TOKEN: ${LOCATION_API_TOKEN:?Set LOCATION_API_TOKEN in deploy/.env}
-      OWNER_EMAIL: ${OWNER_EMAIL:?Set OWNER_EMAIL in deploy/.env}
+      OWNER_USER_ID: ${OWNER_USER_ID:?Set OWNER_USER_ID in deploy/.env}
       MOVEMENT_ALERT_METERS: ${MOVEMENT_ALERT_METERS:-152.4}
       ALERT_COOLDOWN_MS: ${ALERT_COOLDOWN_MS:-60000}
     depends_on:
