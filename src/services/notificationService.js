@@ -49,7 +49,7 @@ export async function armMovingPartnerAlert(partner, provider) {
 
 async function handleDirectionsNotification(notification, onOpenDirections) {
   const data = notification?.request?.content?.data;
-  if (!['refresh-partner-directions', 'cover-request'].includes(data?.type) || !data.partnerId) return;
+  if (!['refresh-partner-directions', 'cover-request', 'pursuit'].includes(data?.type) || !data.partnerId) return;
   let partner = {
     id: data.partnerId,
     name: data.partnerName || 'Partner',
@@ -62,7 +62,7 @@ async function handleDirectionsNotification(notification, onOpenDirections) {
     // Fall back to the coordinates included in the notification.
   }
   if (Number.isFinite(partner.location?.latitude) && Number.isFinite(partner.location?.longitude)) {
-    await onOpenDirections(partner, data.provider || 'automatic');
+    await onOpenDirections(partner);
   }
 }
 

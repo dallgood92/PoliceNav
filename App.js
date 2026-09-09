@@ -8,7 +8,6 @@ import { usePartners } from './src/hooks/usePartners';
 import { useLiveLocation } from './src/hooks/useLiveLocation';
 import { colors } from './src/theme/colors';
 import { configureAlertAudio, observeDirectionNotifications, registerForCoverAlerts } from './src/services/notificationService';
-import { openNavigationTo } from './src/services/navigationService';
 import { useOfficerSession } from './src/hooks/useOfficerSession';
 import { useDepartmentWorkspace } from './src/hooks/useDepartmentWorkspace';
 import { isLocationBackendConfigured, publishLocation } from './src/services/locationApi';
@@ -39,6 +38,8 @@ function createDemoPartners(location) {
 
 export default function App() {
   const [selectedPartnerId, setSelectedPartnerId] = useState(null);
+  const [notificationPartner, setNotificationPartner] = useState(null);
+  const [fullscreenRequestKey, setFullscreenRequestKey] = useState(0);
   const [showDepartment, setShowDepartment] = useState(false);
   const lastForegroundPublish = useRef(0);
   const partnerState = usePartners();
@@ -54,11 +55,14 @@ export default function App() {
     : partners;
   const demoPartners = useMemo(() => createDemoPartners(live.location), [live.location?.coords?.latitude, live.location?.coords?.longitude]);
   const displayedPartners = __DEV__ && !visiblePartners.length ? demoPartners : visiblePartners;
-  const selectedPartner = displayedPartners.find((partner) => partner.id === selectedPartnerId);
+  const selectedPartner = displayedPartners.find((partner) => partner.id === selectedPartnerId)
+    || (notificationPartner?.id === selectedPartnerId ? notificationPartner : null);
 
-  useEffect(() => observeDirectionNotifications(
-    (partner, provider) => openNavigationTo(partner, provider, { armAlert: false }),
-  ), []);
+  useEffect(() => observeDirectionNotifications((partner) => {
+    setNotificationPartner(partner);
+    setSelectedPartnerId(partner.id);
+    setFullscreenRequestKey((current) => current + 1);
+  }), []);
 
   useEffect(() => { configureAlertAudio().catch(() => {}); }, []);
 
@@ -111,16 +115,17 @@ export default function App() {
             onDone={() => setShowDepartment(false)}
             onSignOut={session.signOut}
           />
-        ) : duty.assignment.status === 'pursuit' ? (
-          <PursuitScreen live={live} onTerminate={() => changeDuty({ ...duty.assignment, status: 'available' })} />
         ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
             partners={displayedPartners}
             duty={duty.assignment}
             userLocation={live.location}
-            onBack={() => setSelectedPartnerId(null)}
+            fullscreenRequestKey={fullscreenRequestKey}
+            onBack={() => { setSelectedPartnerId(null); setNotificationPartner(null); }}
           />
+        ) : duty.assignment.status === 'pursuit' ? (
+          <PursuitScreen live={live} onTerminate={() => changeDuty({ ...duty.assignment, status: 'available' })} />
         ) : (
           <HomeScreen
             live={live}

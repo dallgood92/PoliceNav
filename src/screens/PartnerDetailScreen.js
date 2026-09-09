@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import { useMapPreference } from '../hooks/useMapPreference';
 import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
-import { availableMapChoices, openNavigationTo } from '../services/navigationService';
 import { fetchDrivingRoute } from '../services/routeService';
 import { colors } from '../theme/colors';
 import { getPartnerPresence } from '../utils/presence';
@@ -47,6 +45,19 @@ const bearingBetween = (from, to) => {
   const x = Math.cos(startLatitude) * Math.sin(endLatitude) - Math.sin(startLatitude) * Math.cos(endLatitude) * Math.cos(longitudeDelta);
   return (degrees(Math.atan2(y, x)) + 360) % 360;
 };
+const trimRouteFromPosition = (coordinates, position) => {
+  if (coordinates.length < 2 || !position) return coordinates;
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  coordinates.forEach((coordinate, index) => {
+    const distance = distanceInMeters(position, coordinate);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+  return coordinates.slice(Math.min(nearestIndex + 1, coordinates.length - 1));
+};
 
 function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
   const pursuitPulse = useRef(new Animated.Value(0)).current;
@@ -78,7 +89,7 @@ function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
   );
 }
 
-function CurrentUnitMarker({ dutyStatus, heading, mode }) {
+function CurrentUnitMarker({ callSign, dutyStatus, heading, mode }) {
   const lightPulse = useRef(new Animated.Value(0)).current;
   const lightsActive = ['traffic_stop', 'cover_requested', 'pursuit'].includes(dutyStatus);
   useEffect(() => {
@@ -96,13 +107,14 @@ function CurrentUnitMarker({ dutyStatus, heading, mode }) {
   const rightLight = lightPulse.interpolate({ inputRange: [0, 1], outputRange: ['#EF233C', '#3478F6'] });
   return (
     <View style={[styles.currentUnitMarker, { transform: [{ rotate: rotation }] }]}>
+      {callSign ? <Text style={[styles.currentUnitCallSign, mode !== 'detail' && styles.currentUnitCallSignCompact]}>{callSign}</Text> : null}
       <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.currentUnitCar, mode === 'compact' && styles.currentUnitCarCompact, mode === 'dot' && styles.currentUnitCarDot]} />
       <View style={[styles.currentLightBar, mode === 'compact' && styles.currentLightBarCompact, mode === 'dot' && styles.currentLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: leftLight }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: rightLight }]} /></> : null}</View>
     </View>
   );
 }
 
-export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onBack }) {
+export default function PartnerDetailScreen({ partner, partners, duty, userLocation, fullscreenRequestKey = 0, onBack }) {
   const mapRef = useRef(null);
   const lastRouteRequestRef = useRef({ origin: null, destination: null });
   const routeAbortRef = useRef(null);
@@ -117,7 +129,6 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const presence = getPartnerPresence(partner);
-  const { preference } = useMapPreference();
   const locationDetails = usePartnerLocationDetails(partner.location);
   const block = deriveHundredBlock(locationDetails.address);
   const partnerSpeed = partner.location?.speed;
@@ -129,10 +140,27 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         compassHeading: null,
       });
   const currentUnit = `Unit ${duty?.unitNumber || ''}`;
+  const normalizedCurrentUnit = currentUnit.replace(/\s+/g, '').toLowerCase();
+  const normalizedCurrentCallSign = String(duty?.callSign || '').trim().toLowerCase();
   const mapPartners = userLocation?.coords
-    ? (partners || []).filter((item) => item.unit !== currentUnit)
+    ? (partners || []).filter((item) => {
+        const sameUnit = duty?.unitNumber && String(item.unit || '').replace(/\s+/g, '').toLowerCase() === normalizedCurrentUnit;
+        const sameCallSign = normalizedCurrentCallSign && crewCallSigns(item).some((callSign) => String(callSign).trim().toLowerCase() === normalizedCurrentCallSign);
+        return !sameUnit && !sameCallSign;
+      })
     : (partners || []);
   const unitCallSigns = crewCallSigns(partner).join(' | ');
+
+  useEffect(() => {
+    if (fullscreenRequestKey > 0) setMapFullscreen(true);
+  }, [fullscreenRequestKey]);
+  const liveRouteCoordinates = routeCoordinates.length > 1 && userLocation?.coords
+    ? [
+        { latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude },
+        ...trimRouteFromPosition(routeCoordinates.slice(1, -1), userLocation.coords),
+        { latitude: partner.location.latitude, longitude: partner.location.longitude },
+      ]
+    : routeCoordinates;
 
   useEffect(() => {
     const origin = userLocation?.coords;
@@ -154,8 +182,15 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     const controller = new AbortController();
     routeAbortRef.current = controller;
     fetchDrivingRoute(origin, destination, controller.signal).then((coordinates) => {
-      setRouteCoordinates(coordinates);
-      setRouteHealth(coordinates.length > 1 ? 'current' : 'unavailable');
+      const exactRoute = coordinates.length > 1
+        ? [
+            { latitude: origin.latitude, longitude: origin.longitude },
+            ...coordinates,
+            { latitude: destination.latitude, longitude: destination.longitude },
+          ]
+        : coordinates;
+      setRouteCoordinates(exactRoute);
+      setRouteHealth(exactRoute.length > 1 ? 'current' : 'unavailable');
     }).catch((error) => {
       if (error?.name !== 'AbortError') setRouteHealth(error?.status === 429 ? 'throttled' : 'unavailable');
     });
@@ -170,73 +205,24 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     setMarkerMode((current) => current === nextMode ? current : nextMode);
   };
 
-  const launchNavigation = async (provider = preference) => {
-    try {
-      await openNavigationTo(partner, provider);
-    } catch {
-      Alert.alert(
-        'Refresh alerts unavailable',
-        'Directions can still open, but PoliceNav could not arm movement notifications. Check notification permission and the live server.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Open without alerts',
-            onPress: () => openNavigationTo(partner, provider, { armAlert: false })
-              .catch(() => Alert.alert('Directions unavailable', 'We could not open the selected map.')),
-          },
-        ],
-      );
-    }
-  };
-
-  const chooseMapAndLaunch = () => {
-    const choices = availableMapChoices();
-    Alert.alert(
-      'Open directions with',
-      `Route to ${partner.name}'s latest reported location.`,
-      [
-        ...choices.map((provider) => ({
-          text: provider === 'apple' ? 'Apple Maps' : 'Google Maps',
-          onPress: () => launchNavigation(provider),
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  };
-
-  const confirmAndNavigate = () => {
-    const proceed = () => preference === 'ask' ? chooseMapAndLaunch() : launchNavigation();
-    if (!presence.online) {
-      Alert.alert(
-        'Location may be outdated',
-        `${partner.name} is ${presence.label.toLowerCase()}. Directions use their last reported position.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Continue', onPress: proceed },
-        ],
-      );
-      return;
-    }
-    proceed();
-  };
-
   const frameBothLocations = (force = false) => {
     if (!mapRef.current || (!autoFrame && !force)) return;
     const userCoords = userLocation?.coords;
     const selectedPartnerCoords = partner.location;
     const previousFrame = lastCameraFrameRef.current;
-    const routeEnd = routeCoordinates[routeCoordinates.length - 1];
-    const routeRevision = routeCoordinates.length
-      ? `${routeCoordinates.length}:${routeCoordinates[0]?.latitude}:${routeCoordinates[0]?.longitude}:${routeEnd?.latitude}:${routeEnd?.longitude}`
+    const routeEnd = liveRouteCoordinates[liveRouteCoordinates.length - 1];
+    const routeRevision = liveRouteCoordinates.length
+      ? `${liveRouteCoordinates.length}:${liveRouteCoordinates[0]?.latitude}:${liveRouteCoordinates[0]?.longitude}:${routeEnd?.latitude}:${routeEnd?.longitude}`
       : 'direct';
     const frameChanged = !previousFrame
       || previousFrame.width !== width
       || previousFrame.height !== height
+      || previousFrame.fullscreen !== mapFullscreen
       || previousFrame.routeRevision !== routeRevision
       || distanceInMeters(previousFrame.user, userCoords) >= 8
       || distanceInMeters(previousFrame.partner, selectedPartnerCoords) >= 8;
     if (!force && !frameChanged) return;
-    lastCameraFrameRef.current = { user: userCoords, partner: selectedPartnerCoords, width, height, routeRevision };
+    lastCameraFrameRef.current = { user: userCoords, partner: selectedPartnerCoords, width, height, fullscreen: mapFullscreen, routeRevision };
     const coordinates = [
       ...(userCoords ? [{ latitude: userCoords.latitude, longitude: userCoords.longitude }] : []),
       ...(Number.isFinite(selectedPartnerCoords?.latitude) && Number.isFinite(selectedPartnerCoords?.longitude)
@@ -255,14 +241,28 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     const distance = distanceInMeters(userCoords, selectedPartnerCoords);
     const nearby = distance < 805;
     const closeDrivingView = distance < 400;
-    const routeToFrame = routeCoordinates.length > 1 ? routeCoordinates : coordinates;
+    const forwardRoutePoint = liveRouteCoordinates.find((coordinate) => distanceInMeters(userCoords, coordinate) >= 20);
+    const drivingHeading = Number.isFinite(userCoords.heading) && userCoords.heading >= 0 && (userCoords.speed || 0) >= 1.5
+      ? userCoords.heading
+      : bearingBetween(userCoords, forwardRoutePoint || selectedPartnerCoords);
+    if (mapFullscreen) {
+      const altitude = distance < 500 ? 350 : distance < 1_600 ? 500 : 700;
+      mapRef.current.animateCamera({
+        center: {
+          latitude: userCoords.latitude,
+          longitude: userCoords.longitude,
+        },
+        heading: drivingHeading,
+        pitch: 60,
+        altitude,
+      }, { duration: 450 });
+      return;
+    }
+    const routeToFrame = liveRouteCoordinates.length > 1 ? liveRouteCoordinates : coordinates;
     const edgePadding = nearby
       ? { top: 58, right: 52, bottom: 58, left: 52 }
       : { top: 105, right: 90, bottom: 105, left: 90 };
     mapRef.current.fitToCoordinates(routeToFrame, { edgePadding, animated: true });
-    const drivingHeading = Number.isFinite(userCoords.heading) && userCoords.heading >= 0
-      ? userCoords.heading
-      : bearingBetween(userCoords, selectedPartnerCoords);
     clearTimeout(cameraTiltTimerRef.current);
     cameraTiltTimerRef.current = setTimeout(async () => {
       try {
@@ -295,7 +295,8 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     duty?.unitNumber,
     userLocation?.coords.latitude,
     userLocation?.coords.longitude,
-    routeCoordinates,
+    liveRouteCoordinates,
+    mapFullscreen,
     width,
     height,
     autoFrame,
@@ -325,6 +326,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const mapPanel = (frameStyle) => (
     <View style={[styles.mapFrame, frameStyle]}>
           <MapView
+            key={mapFullscreen ? 'fullscreen-driving-map' : 'embedded-route-map'}
             ref={mapRef}
             style={styles.map}
             userInterfaceStyle="dark"
@@ -333,9 +335,9 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             rotateEnabled
             scrollEnabled
             zoomEnabled
-            onMapReady={frameBothLocations}
+            onMapReady={() => frameBothLocations(true)}
             onRegionChangeComplete={updateMarkerMode}
-            onTouchStart={pauseAutoFrame}
+            onPanDrag={pauseAutoFrame}
             initialRegion={{
               latitude: partner.location.latitude,
               longitude: partner.location.longitude,
@@ -343,7 +345,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
               longitudeDelta: 0.025,
             }}
           >
-            {routeCoordinates.length > 1 ? <Polyline coordinates={routeCoordinates} strokeColor={colors.accent} strokeWidth={6} lineCap="round" lineJoin="round" zIndex={2} /> : null}
+            {liveRouteCoordinates.length > 1 ? <Polyline coordinates={liveRouteCoordinates} strokeColor={colors.accent} strokeWidth={6} lineCap="round" lineJoin="round" zIndex={2} /> : null}
             {userLocation?.coords ? (
               <Marker
                 coordinate={{
@@ -354,7 +356,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 description="Your unit's live GPS location"
               anchor={{ x: 0.5, y: 0.5 }}
               >
-                <CurrentUnitMarker dutyStatus={duty?.status} heading={autoFrame ? 0 : userLocation.coords.heading} mode={markerMode} />
+                <CurrentUnitMarker callSign={duty?.callSign} dutyStatus={duty?.status} heading={mapFullscreen ? 0 : userLocation.coords.heading} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
@@ -365,17 +367,16 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           </MapView>
           <View style={styles.liveMapBadge}>
             <View style={[styles.presenceDot, styles[`${presence.quality}Dot`]]} />
-            <Text style={styles.liveMapText}>LIVE PARTNER MAP</Text>
+            <Text style={[styles.liveMapText, presence.online ? styles.partnerOnlineText : styles.partnerOfflineText]}>
+              {presence.online ? 'PARTNER ONLINE' : `PARTNER ${presence.label.toUpperCase()}`}
+            </Text>
           </View>
           {routeHealth === 'throttled' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE THROTTLED · MAY BE OUTDATED</Text></View> : null}
           {routeHealth === 'unavailable' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE UPDATE DELAYED</Text></View> : null}
-          {!presence.online ? <View style={[styles.routeWarning, styles.partnerLocationWarning]}><Text style={styles.routeWarningText}>PARTNER LOCATION {presence.label.toUpperCase()}</Text></View> : null}
           {!autoFrame ? <Pressable accessibilityRole="button" accessibilityLabel="Resume following both units" onPress={resumeAutoFrame} style={styles.followButton}><Text style={styles.followText}>FOLLOW</Text></Pressable> : null}
           <Pressable accessibilityRole="button" accessibilityLabel={mapFullscreen ? 'Exit full-screen map' : 'Open full-screen map'} onPress={() => setMapFullscreen((current) => !current)} style={styles.fullscreenButton}><Text style={styles.fullscreenButtonText}>{mapFullscreen ? '×' : '⛶'}</Text></Pressable>
     </View>
   );
-  const directionsButton = <Pressable accessibilityRole="button" onPress={confirmAndNavigate} style={({ pressed }) => [styles.navigateButton, pressed && styles.pressed]}><Text style={styles.navigateText}>OPEN DIRECTIONS</Text></Pressable>;
-
   if (mapFullscreen) return <View style={styles.container}>{mapPanel(styles.fullscreenMapFrame)}</View>;
 
   return (
@@ -384,11 +385,11 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       {isLandscape ? (
         <View style={styles.landscapeContent}>
           <Pressable accessibilityLabel="Back to partners" accessibilityRole="button" onPress={onBack} style={styles.landscapeBackButton}><Text style={styles.landscapeBackText}>‹</Text></Pressable>
-          <View style={styles.landscapeInfo}>{identityAndLocation}{directionsButton}</View>
+          <View style={styles.landscapeInfo}>{identityAndLocation}</View>
           <View style={styles.landscapeMap}>{mapPanel(styles.mapFrameFill)}</View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>{identityAndLocation}{mapPanel({ height: Math.max(230, Math.min(315, height * 0.36)) })}{directionsButton}</ScrollView>
+        <ScrollView contentContainerStyle={styles.content}>{identityAndLocation}{mapPanel({ height: Math.max(310, Math.min(410, height * 0.48)) })}</ScrollView>
       )}
     </View>
   );
@@ -430,7 +431,7 @@ const styles = StyleSheet.create({
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
   goodDot: { backgroundColor: colors.success },
   weakDot: { backgroundColor: colors.warning },
-  offlineDot: { backgroundColor: colors.muted },
+  offlineDot: { backgroundColor: colors.danger },
   mapFrame: { width: '100%', borderRadius: 12, overflow: 'hidden', marginTop: 11, borderWidth: 1, borderColor: colors.border },
   mapFrameLandscape: { maxWidth: 760 },
   mapFrameFill: { flex: 1, height: '100%', marginTop: 0, borderRadius: 0, borderTopWidth: 0, borderBottomWidth: 0, borderRightWidth: 0 },
@@ -449,9 +450,9 @@ const styles = StyleSheet.create({
   partnerCarStack: { alignItems: 'center', width: 55 },
   partnerCarStackCompact: { width: 31 },
   partnerCarStackDot: { width: 37 },
-  partnerCallSignText: { maxWidth: 55, color: '#64748B', fontSize: 12, lineHeight: 14, fontWeight: '900', textAlign: 'center', marginBottom: 1, textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
-  partnerCallSignTextCompact: { fontSize: 7, lineHeight: 8 },
-  partnerCallSignTextDot: { fontSize: 8, lineHeight: 9 },
+  partnerCallSignText: { position: 'absolute', zIndex: 2, top: -14, maxWidth: 55, color: '#64748B', fontSize: 12, lineHeight: 14, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  partnerCallSignTextCompact: { top: -9, fontSize: 7, lineHeight: 8 },
+  partnerCallSignTextDot: { top: -10, fontSize: 8, lineHeight: 9 },
   partnerCarImageWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   partnerCarImage: { width: 34, height: 51 },
   partnerCarImageCompact: { width: 18, height: 27 },
@@ -462,6 +463,8 @@ const styles = StyleSheet.create({
   partnerBlueLight: { flex: 1, backgroundColor: '#3478F6' },
   partnerRedLight: { flex: 1, backgroundColor: '#EF233C' },
   currentUnitMarker: { alignItems: 'center', justifyContent: 'center' },
+  currentUnitCallSign: { position: 'absolute', zIndex: 2, top: -13, color: '#FFFFFF', fontSize: 11, lineHeight: 12, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  currentUnitCallSignCompact: { top: -9, fontSize: 8, lineHeight: 9 },
   currentUnitCar: { width: 36, height: 54 },
   currentUnitCarCompact: { width: 19, height: 29 },
   currentUnitCarDot: { width: 22, height: 33 },
@@ -470,15 +473,13 @@ const styles = StyleSheet.create({
   currentLightBarDot: { top: 16, width: 10, height: 3 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  partnerOnlineText: { color: colors.success },
+  partnerOfflineText: { color: colors.danger },
   routeWarning: { position: 'absolute', left: 8, top: 43, maxWidth: '70%', borderRadius: 5, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(11,17,24,0.94)', paddingHorizontal: 8, paddingVertical: 5 },
-  partnerLocationWarning: { top: 8, left: '22%', right: '22%', maxWidth: '56%', alignItems: 'center', borderColor: colors.danger },
   routeWarningText: { color: colors.warning, fontSize: 8, fontWeight: '900', letterSpacing: 0.55 },
   followButton: { position: 'absolute', right: 8, top: 8, backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 11, paddingVertical: 7 },
   followText: { color: colors.background, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
   fullscreenMapFrame: { flex: 1, height: '100%', marginTop: 0, borderRadius: 0, borderWidth: 0 },
   fullscreenButton: { position: 'absolute', right: 9, bottom: 9, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(11,17,24,0.92)' },
   fullscreenButtonText: { color: colors.accent, fontSize: 25, lineHeight: 27, fontWeight: '900' },
-  navigateButton: { width: '100%', minHeight: 54, backgroundColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 11 },
-  pressed: { opacity: 0.8 },
-  navigateText: { color: colors.background, fontSize: 17, fontWeight: '900', letterSpacing: 0.8 },
 });

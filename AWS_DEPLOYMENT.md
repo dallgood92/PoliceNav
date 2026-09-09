@@ -97,7 +97,6 @@ DOMAIN=api.example.com
 POSTGRES_PASSWORD=first-generated-value
 REDIS_PASSWORD=second-generated-value
 LOCATION_API_TOKEN=third-generated-value
-OWNER_USER_ID=device-mttltae8-j90p7ae7
 DEPARTMENT_JOIN_CODE=replace-with-a-private-department-code
 MOVEMENT_ALERT_METERS=152.4
 ALERT_COOLDOWN_MS=60000

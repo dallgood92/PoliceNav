@@ -4,14 +4,13 @@ import * as store from './storage.js';
 
 const port = Number(process.env.PORT || 8787);
 const token = process.env.LOCATION_API_TOKEN;
-const ownerUserId = process.env.OWNER_USER_ID?.trim();
 const departmentJoinCode = process.env.DEPARTMENT_JOIN_CODE?.trim();
 const clients = new Set();
 const OFFLINE_MS = 45_000;
 const MOVE_METERS = Number(process.env.MOVEMENT_ALERT_METERS || 152.4);
 const ALERT_COOLDOWN = Number(process.env.ALERT_COOLDOWN_MS || 60_000);
 let sequence = 1;
-if (!token || !ownerUserId || !departmentJoinCode || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, OWNER_USER_ID, DEPARTMENT_JOIN_CODE, DATABASE_URL, and REDIS_URL are required.');
+if (!token || !departmentJoinCode || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, DEPARTMENT_JOIN_CODE, DATABASE_URL, and REDIS_URL are required.');
 
 const reply = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
 const authorized = (req) => req.headers.authorization === `Bearer ${token}`;
@@ -63,16 +62,18 @@ async function notifyWatches(partner) {
   }
 }
 
-async function sendCoverAlerts(partner) {
+async function sendEmergencyAlerts(partner, type) {
   const tokens = await store.listPartnerPushTokens(partner.id);
   if (!tokens.length) return;
+  const pursuit = type === 'pursuit';
+  const callSign = partner.callSign || 'UNKNOWN';
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(tokens.map((pushToken) => ({
       to: pushToken, sound: 'cover_alert.wav', channelId: 'cover-alerts-v2', priority: 'high',
-      title: `COVER REQUESTED · ${partner.unit}`,
-      body: `${partner.name} (Call ${partner.callSign || '—'}) is requesting cover. Tap for directions.`,
-      data: { type: 'cover-request', partnerId: partner.id, partnerName: partner.name, partnerUnit: partner.unit, latitude: partner.location.latitude, longitude: partner.location.longitude, provider: 'automatic' },
+      title: `${pursuit ? 'PURSUIT' : 'COVER REQUESTED'} · ${callSign}`,
+      body: `Call sign ${callSign}. Tap to open live in-app navigation.`,
+      data: { type, partnerId: partner.id, callSign },
     }))),
   });
 }
@@ -89,7 +90,7 @@ const server = createServer(async (req, res) => {
     }
     const workspaceMatch = url.pathname.match(/^\/users\/([^/]+)\/workspace$/);
     if (req.method === 'GET' && workspaceMatch) {
-      const workspace = await store.getWorkspace(decodeURIComponent(workspaceMatch[1]), ownerUserId);
+      const workspace = await store.getWorkspace(decodeURIComponent(workspaceMatch[1]));
       return workspace ? reply(res, 200, workspace) : reply(res, 404, { error: 'User not found.' });
     }
 
@@ -101,12 +102,12 @@ const server = createServer(async (req, res) => {
       const conflict = await store.findUserIdentityConflict(profile);
       if (conflict) return reply(res, 409, { error: 'Officer already added.' });
       const savedUser = await store.upsertUser(profile);
-      const joinedUser = await store.joinArgyleDepartment(savedUser.id, ownerUserId);
+      const joinedUser = await store.joinArgyleDepartment(savedUser.id);
       return joinedUser ? reply(res, 200, { user: joinedUser }) : reply(res, 503, { error: 'Argyle Police Department is unavailable.' });
     }
     if (req.method === 'POST' && url.pathname === '/departments') {
       if (!body?.creatorUserId || typeof body?.name !== 'string' || body.name.trim().length < 2) return reply(res, 400, { error: 'Invalid department.' });
-      const workspace = await store.createDepartment({ id: id('dept'), squadId: id('squad'), name: body.name.trim(), creatorUserId: body.creatorUserId, createdAt: Date.now(), ownerUserId });
+      const workspace = await store.createDepartment({ id: id('dept'), squadId: id('squad'), name: body.name.trim(), creatorUserId: body.creatorUserId, createdAt: Date.now() });
       return workspace ? reply(res, 201, workspace) : reply(res, 409, { error: 'User already belongs to a department.' });
     }
     const joinMatch = url.pathname.match(/^\/departments\/([^/]+)\/requests$/);
@@ -115,16 +116,16 @@ const server = createServer(async (req, res) => {
       return request ? reply(res, 201, { request }) : reply(res, 400, { error: 'Cannot request membership.' });
     }
     const approveMatch = url.pathname.match(/^\/department-requests\/([^/]+)\/approve$/);
-    if (req.method === 'POST' && approveMatch) return await store.approveDepartmentRequest(approveMatch[1], body?.adminUserId, ownerUserId) ? reply(res, 200, { approved: true }) : reply(res, 403, { error: 'Not allowed.' });
+    if (req.method === 'POST' && approveMatch) return await store.approveDepartmentRequest(approveMatch[1], body?.adminUserId) ? reply(res, 200, { approved: true }) : reply(res, 403, { error: 'Not allowed.' });
     const createSquadMatch = url.pathname.match(/^\/departments\/([^/]+)\/squads$/);
     if (req.method === 'POST' && createSquadMatch) {
       if (typeof body?.name !== 'string' || !body.name.trim()) return reply(res, 400, { error: 'Squad name is required.' });
-      const squad = await store.createSquad({ id: id('squad'), departmentId: createSquadMatch[1], name: body.name.trim(), adminUserId: body?.adminUserId, ownerUserId });
+      const squad = await store.createSquad({ id: id('squad'), departmentId: createSquadMatch[1], name: body.name.trim(), adminUserId: body?.adminUserId });
       return squad ? reply(res, 201, { squad }) : reply(res, 403, { error: 'Not allowed.' });
     }
     const memberMatch = url.pathname.match(/^\/squads\/([^/]+)\/members$/);
     if (req.method === 'POST' && memberMatch) {
-      const squad = await store.addSquadMember({ squadId: memberMatch[1], adminUserId: body?.adminUserId, userId: body?.userId, ownerUserId });
+      const squad = await store.addSquadMember({ squadId: memberMatch[1], adminUserId: body?.adminUserId, userId: body?.userId });
       return squad ? reply(res, 200, { squad }) : reply(res, 403, { error: 'Not allowed.' });
     }
     if (req.method === 'POST' && url.pathname === '/devices/register') {
@@ -144,7 +145,8 @@ const server = createServer(async (req, res) => {
       const previous = await store.getPartner(body.id);
       const partner = { id: body.id, name: body.name, unit: body.unit, callSign: body.callSign || null, avatarColor: '#059669', dutyStatus: body.dutyStatus || 'available', occupants: Array.isArray(body.occupants) ? body.occupants.slice(0, 2) : [body.name], occupantCallSigns: Array.isArray(body.occupantCallSigns) ? body.occupantCallSigns.slice(0, 2) : [body.callSign].filter(Boolean), connection: { online: true, quality: 'good', lastSeenAt: now }, location: body.location };
       await store.savePartner(partner);
-      if (partner.dutyStatus === 'cover_requested' && previous?.dutyStatus !== 'cover_requested') void sendCoverAlerts(partner);
+      if (partner.dutyStatus === 'cover_requested' && previous?.dutyStatus !== 'cover_requested') void sendEmergencyAlerts(partner, 'cover-request');
+      if (partner.dutyStatus === 'pursuit' && previous?.dutyStatus !== 'pursuit') void sendEmergencyAlerts(partner, 'pursuit');
       return reply(res, 202, { accepted: true, serverTimestamp: now });
     }
     return res.writeHead(404).end();

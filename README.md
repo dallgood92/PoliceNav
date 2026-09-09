@@ -89,7 +89,7 @@ For the current pilot, each installation asks for first name, last name, call si
 
 The department creator becomes its first admin and is placed in a default **Patrol** squad. Other signed-in users request access, an admin approves them, and then assigns them to one or more squads. The partner dashboard filters the live location stream to device IDs belonging to the signed-in officer's squads.
 
-Production management is restricted by the backend `OWNER_USER_ID` setting. Only the matching preserved database account can create a department, approve users, create squads, or assign squad members; hiding management controls in the app is secondary to these server-side checks.
+The first registration matching `Dylan Allgood` with call sign `875` bootstraps the Argyle Police Department and receives the admin role. Management access is subsequently enforced from that stored database role instead of a device ID.
 
 These `EXPO_PUBLIC_*` values are embedded in the app binary and are **not secrets**. The shared token is suitable only for controlled demos. Before field use, replace it with authenticated users, short-lived device credentials, per-team authorization, remote revocation, audit logging, rate limiting, encrypted storage, and an agency-approved retention policy.
 

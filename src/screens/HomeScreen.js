@@ -4,15 +4,12 @@ import LocationHero from '../components/LocationHero';
 import LocationStats from '../components/LocationStats';
 import PartnerRow from '../components/PartnerRow';
 import DutyAssignmentCard from '../components/DutyAssignmentCard';
-import { useMapPreference } from '../hooks/useMapPreference';
 import { colors } from '../theme/colors';
 
 export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onSelectPartner }) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const [menuOpen, setMenuOpen] = useState(false);
-  const { preference, setPreference } = useMapPreference();
-  const selectedMap = preference === 'google' ? 'google' : 'apple';
   const compressedPartners = landscape && partners.length >= 5;
   const sortedPartners = useMemo(() => {
     const priority = { pursuit: 0, cover_requested: 1, traffic_stop: 2, available: 3 };
@@ -45,8 +42,6 @@ export default function HomeScreen({ live, partners, department, squads, officer
         <Pressable style={[styles.scrim, landscape && styles.scrimLandscape]} onPress={() => setMenuOpen(false)}><Pressable style={[styles.menu, landscape && styles.menuLandscape]} onPress={() => {}}>
           <Text style={styles.menuTitle}>SQUADNAV</Text>
           {department ? <><Text style={styles.department}>{department.name}</Text><Text style={styles.squads}>{squads?.map((squad) => squad.name).join(' · ') || 'Awaiting squad assignment'}</Text></> : null}
-          <Text style={styles.menuSectionLabel}>DIRECTIONS MAP</Text>
-          <View style={styles.menuMapToggle}><Pressable onPress={() => setPreference('apple')} style={[styles.mapOption, selectedMap === 'apple' && styles.mapOptionActive]}><Text style={[styles.mapOptionText, selectedMap === 'apple' && styles.mapOptionTextActive]}>APPLE</Text></Pressable><Pressable onPress={() => setPreference('google')} style={[styles.mapOption, selectedMap === 'google' && styles.mapOptionActive]}><Text style={[styles.mapOptionText, selectedMap === 'google' && styles.mapOptionTextActive]}>GOOGLE</Text></Pressable></View>
           {department ? <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); onManageDepartment(); }}><Text style={styles.menuActionText}>MANAGE DEPARTMENT</Text></Pressable> : null}
           <Pressable style={styles.closeAction} onPress={() => setMenuOpen(false)}><Text style={styles.closeText}>CLOSE</Text></Pressable>
         </Pressable></Pressable>
@@ -58,9 +53,8 @@ export default function HomeScreen({ live, partners, department, squads, officer
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: 12, paddingBottom: 8 }, topBar: { height: 42, flexDirection: 'row', alignItems: 'center' },
   menuButton: { width: 42, height: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: colors.panel }, menuGlyph: { color: colors.accent, fontSize: 23, fontWeight: '900', lineHeight: 25 },
-  mapOption: { flex: 1, paddingHorizontal: 9, paddingVertical: 9, borderRadius: 6, borderWidth: 1, borderColor: colors.border }, mapOptionActive: { backgroundColor: colors.accent, borderColor: colors.accent }, mapOptionText: { color: colors.muted, textAlign: 'center', fontSize: 9, fontWeight: '900' }, mapOptionTextActive: { color: colors.background },
   body: { flex: 1 }, bodyLandscape: { flexDirection: 'row', gap: 10 }, locationPanel: { flex: 1, justifyContent: 'center' }, controlsPanel: { flex: 1, justifyContent: 'center' }, controlsPanelLandscape: { justifyContent: 'flex-start', paddingTop: 2 }, verticalRule: { width: 1, marginVertical: 8, backgroundColor: colors.border },
   notice: { color: colors.warning, backgroundColor: colors.panel, fontSize: 11, fontWeight: '700', marginHorizontal: 6, marginTop: 5, padding: 7, borderRadius: 6 }, partnerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32, marginHorizontal: 4, marginTop: 5 }, sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1.2 },
   partnerCount: { color: colors.muted, fontSize: 11, fontWeight: '900' }, partnerScroller: { flexShrink: 1 }, partnerScrollerLandscape: { flex: 1 }, partnerList: { minHeight: 88, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }, partnerListLandscape: { minHeight: 0, flexDirection: 'column', flexWrap: 'nowrap' }, emptyPartners: { width: '100%', color: colors.muted, backgroundColor: colors.panel, borderRadius: 9, padding: 15, textAlign: 'center', fontSize: 12 },
-  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.68)', justifyContent: 'flex-start', paddingTop: 64, paddingHorizontal: 16 }, scrimLandscape: { justifyContent: 'center', alignItems: 'center', paddingTop: 10 }, menu: { width: 290, backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 18 }, menuLandscape: { width: '68%', maxWidth: 560, paddingVertical: 14, paddingHorizontal: 22 }, menuTitle: { color: colors.accent, fontSize: 18, fontWeight: '900', letterSpacing: 1.5 }, department: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 18 }, squads: { color: colors.muted, fontSize: 12, marginTop: 3 }, menuSectionLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginTop: 17, marginBottom: 6 }, menuMapToggle: { flexDirection: 'row', gap: 7 }, menuAction: { backgroundColor: colors.accent, padding: 13, borderRadius: 8, marginTop: 16 }, menuActionText: { color: colors.background, fontSize: 11, fontWeight: '900', textAlign: 'center' }, closeAction: { paddingTop: 16 }, closeText: { color: colors.muted, fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.68)', justifyContent: 'flex-start', paddingTop: 64, paddingHorizontal: 16 }, scrimLandscape: { justifyContent: 'center', alignItems: 'center', paddingTop: 10 }, menu: { width: 290, backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 18 }, menuLandscape: { width: '68%', maxWidth: 560, paddingVertical: 14, paddingHorizontal: 22 }, menuTitle: { color: colors.accent, fontSize: 18, fontWeight: '900', letterSpacing: 1.5 }, department: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 18 }, squads: { color: colors.muted, fontSize: 12, marginTop: 3 }, menuAction: { backgroundColor: colors.accent, padding: 13, borderRadius: 8, marginTop: 16 }, menuActionText: { color: colors.background, fontSize: 11, fontWeight: '900', textAlign: 'center' }, closeAction: { paddingTop: 16 }, closeText: { color: colors.muted, fontSize: 11, fontWeight: '900', textAlign: 'center' },
 });
