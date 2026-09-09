@@ -2,6 +2,7 @@
   "expo": {
     "name": "SquadNav",
     "slug": "blockwatch",
+    "icon": "./assets/icon.png",
     "scheme": "blockwatch",
     "version": "0.1.0",
     "orientation": "default",
@@ -16,6 +17,7 @@
     "android": {
       "package": "com.example.blockwatch",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0B1118"
       },
       "permissions": [
