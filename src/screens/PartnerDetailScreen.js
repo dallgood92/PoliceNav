@@ -14,12 +14,6 @@ import { lastName } from '../utils/name';
 
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
 const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
-const ARGYLE_OVERVIEW = {
-  latitude: 33.1212,
-  longitude: -97.1834,
-  latitudeDelta: 0.105,
-  longitudeDelta: 0.12,
-};
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#17212B' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#AAB6C2' }] },
@@ -231,13 +225,18 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     const userCoords = userLocation?.coords;
     const selectedPartnerCoords = partner.location;
     const previousFrame = lastCameraFrameRef.current;
+    const routeEnd = routeCoordinates[routeCoordinates.length - 1];
+    const routeRevision = routeCoordinates.length
+      ? `${routeCoordinates.length}:${routeCoordinates[0]?.latitude}:${routeCoordinates[0]?.longitude}:${routeEnd?.latitude}:${routeEnd?.longitude}`
+      : 'direct';
     const frameChanged = !previousFrame
       || previousFrame.width !== width
       || previousFrame.height !== height
+      || previousFrame.routeRevision !== routeRevision
       || distanceInMeters(previousFrame.user, userCoords) >= 8
       || distanceInMeters(previousFrame.partner, selectedPartnerCoords) >= 8;
     if (!force && !frameChanged) return;
-    lastCameraFrameRef.current = { user: userCoords, partner: selectedPartnerCoords, width, height };
+    lastCameraFrameRef.current = { user: userCoords, partner: selectedPartnerCoords, width, height, routeRevision };
     const coordinates = [
       ...(userCoords ? [{ latitude: userCoords.latitude, longitude: userCoords.longitude }] : []),
       ...(Number.isFinite(selectedPartnerCoords?.latitude) && Number.isFinite(selectedPartnerCoords?.longitude)
@@ -255,15 +254,12 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     }
     const distance = distanceInMeters(userCoords, selectedPartnerCoords);
     const nearby = distance < 805;
-    if (!nearby) {
-      setMarkerMode('compact');
-      mapRef.current.animateToRegion(ARGYLE_OVERVIEW, 400);
-      return;
-    }
+    const closeDrivingView = distance < 400;
+    const routeToFrame = routeCoordinates.length > 1 ? routeCoordinates : coordinates;
     const edgePadding = nearby
       ? { top: 58, right: 52, bottom: 58, left: 52 }
       : { top: 105, right: 90, bottom: 105, left: 90 };
-    mapRef.current.fitToCoordinates(coordinates, { edgePadding, animated: true });
+    mapRef.current.fitToCoordinates(routeToFrame, { edgePadding, animated: true });
     const drivingHeading = Number.isFinite(userCoords.heading) && userCoords.heading >= 0
       ? userCoords.heading
       : bearingBetween(userCoords, selectedPartnerCoords);
@@ -272,7 +268,10 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       try {
         if (!mapRef.current) return;
         const camera = await mapRef.current.getCamera();
-        mapRef.current?.animateCamera({ ...camera, heading: drivingHeading, pitch: 52 }, { duration: 350 });
+        const nextPitch = closeDrivingView ? 52 : 0;
+        const nextHeading = closeDrivingView ? drivingHeading : 0;
+        if (Math.abs((camera.pitch || 0) - nextPitch) < 1 && Math.abs((camera.heading || 0) - nextHeading) < 1) return;
+        mapRef.current?.animateCamera({ ...camera, heading: nextHeading, pitch: nextPitch }, { duration: 350 });
       } catch { /* Keep the fitted overhead view when camera tilt is unavailable. */ }
     }, 450);
   };
@@ -296,6 +295,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     duty?.unitNumber,
     userLocation?.coords.latitude,
     userLocation?.coords.longitude,
+    routeCoordinates,
     width,
     height,
     autoFrame,
