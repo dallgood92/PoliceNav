@@ -12,6 +12,12 @@ import { lastName } from '../utils/name';
 
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
 const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
+const locationAge = (timestamp) => {
+  if (!Number.isFinite(timestamp)) return 'UPDATE TIME UNAVAILABLE';
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return `UPDATED ${seconds} SEC AGO`;
+  return `UPDATED ${Math.round(seconds / 60)} MIN AGO`;
+};
 
 export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onBack }) {
   const mapRef = useRef(null);
@@ -131,16 +137,21 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
         <View style={styles.locationSummary}>
           <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
-          {block ? <View style={styles.blockBadge}><Text style={styles.partnerBlock}>{block}</Text></View> : null}
           <Text style={styles.partnerStreet} numberOfLines={1}>
             {locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}
           </Text>
+          {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
           {locationDetails.crossStreet?.name ? (
-            <Text style={styles.crossStreet} numberOfLines={1}>
-              NEAREST CROSS · <Text style={styles.crossStreetName}>{locationDetails.crossStreet.name.toUpperCase()}</Text> · {Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT
-            </Text>
-          ) : <Text style={styles.crossStreet}>NEAREST CROSS STREET · NOT AVAILABLE</Text>}
-          <Text style={styles.travelDirection}>{travelDirection.label}</Text>
+            <View style={styles.crossStreetGroup}>
+              <Text style={styles.crossStreetLabel}>CROSS STREET</Text>
+              <Text style={styles.crossStreetName} numberOfLines={1}>
+                {locationDetails.crossStreet.name.toUpperCase()} <Text style={styles.crossStreetDistance}>· {Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT</Text>
+              </Text>
+            </View>
+          ) : <Text style={styles.crossStreetUnavailable}>CROSS STREET · NOT AVAILABLE</Text>}
+          <Text style={[styles.travelDirection, travelDirection.label !== 'STOPPED' && styles.travelDirectionMoving]}>
+            {travelDirection.label} · {locationAge(partner.location?.timestamp)}
+          </Text>
         </View>
         <View style={[styles.mapFrame, isLandscape && styles.mapFrameLandscape]}>
           <MapView
@@ -209,14 +220,17 @@ const styles = StyleSheet.create({
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
-  locationSummary: { alignItems: 'center', width: '100%', marginTop: 24 },
-  locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 12 },
-  blockBadge: { backgroundColor: colors.accent, borderColor: colors.accent, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 12 },
-  partnerBlock: { color: colors.background, fontSize: 18, fontWeight: '900', letterSpacing: 0.7 },
-  partnerStreet: { color: colors.text, fontSize: 19, fontWeight: '900' },
-  crossStreet: { color: colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, marginTop: 10 },
-  crossStreetName: { color: colors.accent },
-  travelDirection: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1, marginTop: 14 },
+  locationSummary: { alignItems: 'center', width: '100%', marginTop: 19 },
+  locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 9 },
+  partnerStreet: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
+  partnerBlock: { color: colors.accent, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
+  crossStreetGroup: { alignItems: 'center', marginTop: 15 },
+  crossStreetLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  crossStreetName: { color: colors.accent, fontSize: 17, fontWeight: '900', letterSpacing: 0.5, marginTop: 3 },
+  crossStreetDistance: { color: colors.muted, fontSize: 12 },
+  crossStreetUnavailable: { color: colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, marginTop: 15 },
+  travelDirection: { color: colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 0.8, marginTop: 16 },
+  travelDirectionMoving: { color: colors.accent },
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
   goodDot: { backgroundColor: colors.success },
   weakDot: { backgroundColor: colors.warning },
