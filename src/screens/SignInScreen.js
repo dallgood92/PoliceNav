@@ -7,7 +7,8 @@ export default function SignInScreen({ session }) {
   const [lastName, setLastName] = useState('');
   const [callSign, setCallSign] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
-  const complete = [firstName, lastName, callSign].every((value) => value.trim());
+  const [departmentCode, setDepartmentCode] = useState('');
+  const complete = [firstName, lastName, callSign, departmentCode].every((value) => value.trim());
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
@@ -20,7 +21,8 @@ export default function SignInScreen({ session }) {
       </View>
       <TextInput autoCapitalize="characters" onChangeText={setCallSign} placeholder="Call sign" placeholderTextColor={colors.muted} style={styles.input} value={callSign} />
       <TextInput onChangeText={setUnitNumber} placeholder="Unit number (optional)" placeholderTextColor={colors.muted} style={styles.input} value={unitNumber} />
-      <Pressable disabled={!complete || session.loading} onPress={() => session.register({ firstName, lastName, callSign, unitNumber })} style={[styles.button, (!complete || session.loading) && styles.buttonDisabled]}>
+      <TextInput autoCapitalize="characters" autoCorrect={false} onChangeText={setDepartmentCode} placeholder="Argyle PD access code" placeholderTextColor={colors.muted} secureTextEntry style={styles.input} value={departmentCode} />
+      <Pressable disabled={!complete || session.loading} onPress={() => session.register({ firstName, lastName, callSign, unitNumber, departmentCode })} style={[styles.button, (!complete || session.loading) && styles.buttonDisabled]}>
         {session.loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>SAVE AND CONTINUE</Text>}
       </Pressable>
       {session.error ? <Text style={styles.error}>{session.error}</Text> : null}

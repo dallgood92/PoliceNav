@@ -91,6 +91,51 @@ export async function findUserIdentityConflict({ deviceId, name, callSign }) {
   return result.rows[0]?.conflict_field || null;
 }
 
+export async function joinArgyleDepartment(userId, ownerUserId) {
+  const client = await database.connect();
+  try {
+    await client.query('BEGIN');
+    const departmentResult = await client.query(
+      `SELECT id FROM departments
+       WHERE LOWER(name) = 'argyle police department' OR LOWER(name) LIKE 'argyle%'
+       ORDER BY CASE WHEN LOWER(name) = 'argyle police department' THEN 0 ELSE 1 END
+       LIMIT 1`,
+    );
+    const departmentId = departmentResult.rows[0]?.id;
+    if (!departmentId) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query(
+      `UPDATE users SET department_id = $1, role = $2
+       WHERE id = $3 AND (department_id IS NULL OR department_id = $1)`,
+      [departmentId, userId === ownerUserId ? 'admin' : 'member', userId],
+    );
+    const squadResult = await client.query(
+      `SELECT id FROM squads WHERE department_id = $1
+       ORDER BY CASE WHEN LOWER(name) = 'patrol' THEN 0 ELSE 1 END, name LIMIT 1`,
+      [departmentId],
+    );
+    if (squadResult.rows[0]?.id) {
+      await client.query(
+        'INSERT INTO squad_members (squad_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [squadResult.rows[0].id, userId],
+      );
+    }
+    await client.query(
+      "UPDATE department_requests SET status = 'approved' WHERE user_id = $1 AND status = 'pending'",
+      [userId],
+    );
+    await client.query('COMMIT');
+    return getUser(userId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getUser(id, client = database) {
   const result = await client.query('SELECT * FROM users WHERE id = $1', [id]);
   return userFromRow(result.rows[0]);

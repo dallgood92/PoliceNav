@@ -28,7 +28,7 @@ export function useOfficerSession() {
       .finally(() => setLoading(false));
   }, []);
 
-  const register = async ({ firstName, lastName, callSign, unitNumber }) => {
+  const register = async ({ firstName, lastName, callSign, unitNumber, departmentCode }) => {
     setError(null);
     setLoading(true);
     try {
@@ -41,6 +41,7 @@ export function useOfficerSession() {
         lastName: lastName.trim(),
         callSign: callSign.trim(),
         unitNumber: unitNumber.trim(),
+        departmentCode: departmentCode.trim(),
       };
       const result = await upsertOfficer(profile);
       const savedOfficer = { ...result.user, callSign: profile.callSign, unitNumber: profile.unitNumber, profileVersion: PROFILE_VERSION };

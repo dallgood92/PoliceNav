@@ -5,12 +5,13 @@ import * as store from './storage.js';
 const port = Number(process.env.PORT || 8787);
 const token = process.env.LOCATION_API_TOKEN;
 const ownerUserId = process.env.OWNER_USER_ID?.trim();
+const departmentJoinCode = process.env.DEPARTMENT_JOIN_CODE?.trim();
 const clients = new Set();
 const OFFLINE_MS = 45_000;
 const MOVE_METERS = Number(process.env.MOVEMENT_ALERT_METERS || 152.4);
 const ALERT_COOLDOWN = Number(process.env.ALERT_COOLDOWN_MS || 60_000);
 let sequence = 1;
-if (!token || !ownerUserId || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, OWNER_USER_ID, DATABASE_URL, and REDIS_URL are required.');
+if (!token || !ownerUserId || !departmentJoinCode || !process.env.DATABASE_URL || !process.env.REDIS_URL) throw new Error('LOCATION_API_TOKEN, OWNER_USER_ID, DEPARTMENT_JOIN_CODE, DATABASE_URL, and REDIS_URL are required.');
 
 const reply = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
 const authorized = (req) => req.headers.authorization === `Bearer ${token}`;
@@ -95,10 +96,13 @@ const server = createServer(async (req, res) => {
     const body = await readBody(req);
     if (req.method === 'POST' && url.pathname === '/users/upsert') {
       if (!body?.id || !body?.email || !body?.name?.trim() || !body?.deviceId || !body?.callSign?.trim()) return reply(res, 400, { error: 'First name, last name, and call sign are required.' });
+      if (body?.departmentCode?.trim() !== departmentJoinCode) return reply(res, 403, { error: 'Incorrect Argyle PD access code.' });
       const profile = { ...body, name: body.name.trim(), callSign: body.callSign.trim(), unitNumber: body.unitNumber?.trim() || null };
       const conflict = await store.findUserIdentityConflict(profile);
       if (conflict) return reply(res, 409, { error: 'Officer already added.' });
-      return reply(res, 200, { user: await store.upsertUser(profile) });
+      const savedUser = await store.upsertUser(profile);
+      const joinedUser = await store.joinArgyleDepartment(savedUser.id, ownerUserId);
+      return joinedUser ? reply(res, 200, { user: joinedUser }) : reply(res, 503, { error: 'Argyle Police Department is unavailable.' });
     }
     if (req.method === 'POST' && url.pathname === '/departments') {
       if (!body?.creatorUserId || typeof body?.name !== 'string' || body.name.trim().length < 2) return reply(res, 400, { error: 'Invalid department.' });
