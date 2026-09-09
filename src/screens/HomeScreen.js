@@ -13,7 +13,7 @@ export default function HomeScreen({ live, partners, department, squads, officer
   const [menuOpen, setMenuOpen] = useState(false);
   const [partnerPage, setPartnerPage] = useState(0);
   const { preference, setPreference } = useMapPreference();
-  const pageSize = landscape ? 2 : 1;
+  const pageSize = landscape ? 5 : 1;
   const pages = Math.max(1, Math.ceil(partners.length / pageSize));
   useEffect(() => { if (partnerPage >= pages) setPartnerPage(pages - 1); }, [partnerPage, pages]);
   const visiblePartners = useMemo(() => partners.slice(partnerPage * pageSize, partnerPage * pageSize + pageSize), [partners, partnerPage, pageSize]);
@@ -29,7 +29,7 @@ export default function HomeScreen({ live, partners, department, squads, officer
         {pages > 1 ? <View style={styles.pager}><Pressable disabled={partnerPage === 0} onPress={() => setPartnerPage((page) => page - 1)} style={styles.pageButton}><Text style={styles.pageText}>‹</Text></Pressable><Text style={styles.pageCount}>{partnerPage + 1}/{pages}</Text><Pressable disabled={partnerPage === pages - 1} onPress={() => setPartnerPage((page) => page + 1)} style={styles.pageButton}><Text style={styles.pageText}>›</Text></Pressable></View> : null}
       </View>
       <View style={[styles.partnerList, landscape && styles.partnerListLandscape]}>
-        {visiblePartners.map((partner) => <PartnerRow key={partner.id} partner={partner} userLocation={live.location} onPress={onSelectPartner} compact />)}
+        {visiblePartners.map((partner) => <PartnerRow key={partner.id} partner={partner} userLocation={live.location} onPress={onSelectPartner} compact dense={landscape} />)}
         {!partners.length ? <Text style={styles.emptyPartners}>No squad partners are sharing yet.</Text> : null}
       </View>
     </View>

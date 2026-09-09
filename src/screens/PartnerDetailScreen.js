@@ -186,41 +186,29 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     height,
   ]);
 
-  return (
-    <View style={styles.container}>
-      <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backText}>‹ PARTNERS</Text>
-      </Pressable>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.unitHeader}>
-          <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
-          <Text style={styles.unitCallSigns}>{unitCallSigns}</Text>
-        </View>
-        <View style={styles.sectionDivider} />
-        {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
-        {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
-        {partner.dutyStatus === 'pursuit' ? <Text style={[styles.dutyBanner, styles.pursuitBanner]}>PURSUIT</Text> : null}
-        <View style={styles.locationSummary}>
-          <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
-          <Text style={styles.partnerStreet} numberOfLines={1}>
-            {locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}
-          </Text>
-          {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
-          <Text style={styles.locality}>{formatLocality(locationDetails.address).toUpperCase()}</Text>
-          <View style={styles.locationDivider} />
-          {locationDetails.crossStreet?.name ? (
-            <View style={styles.crossStreetGroup}>
-              <Text style={styles.crossStreetLabel}>CROSS STREET</Text>
-              <Text style={styles.crossStreetName} numberOfLines={1}>
-                {locationDetails.crossStreet.name.toUpperCase()} <Text style={styles.crossStreetDistance}>· {Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT</Text>
-              </Text>
-            </View>
-          ) : <Text style={styles.crossStreetUnavailable}>CROSS STREET · NOT AVAILABLE</Text>}
-          <Text style={[styles.travelDirection, travelDirection.label !== 'STOPPED' && styles.travelDirectionMoving]}>
-            {travelDirection.label} · {locationAge(partner.location?.timestamp)}
-          </Text>
-        </View>
-        <View style={[styles.mapFrame, { height: isLandscape ? Math.max(220, height - 120) : Math.max(230, Math.min(315, height * 0.36)) }, isLandscape && styles.mapFrameLandscape]}>
+  const statusBanner = partner.dutyStatus === 'cover_requested'
+    ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text>
+    : partner.dutyStatus === 'traffic_stop'
+      ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text>
+      : partner.dutyStatus === 'pursuit' ? <Text style={[styles.dutyBanner, styles.pursuitBanner]}>PURSUIT</Text> : null;
+  const identityAndLocation = (
+    <>
+      <View style={styles.unitHeader}><Text style={styles.unit}>{partner.unit.toUpperCase()}</Text><Text style={styles.unitCallSigns}>{unitCallSigns}</Text></View>
+      <View style={styles.sectionDivider} />
+      {statusBanner}
+      <View style={[styles.locationSummary, isLandscape && styles.locationSummaryLandscape]}>
+        <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.partnerStreet, isLandscape && styles.partnerStreetLandscape]} numberOfLines={1}>{locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}</Text>
+        {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
+        <Text style={styles.locality}>{formatLocality(locationDetails.address).toUpperCase()}</Text>
+        <View style={styles.locationDivider} />
+        {locationDetails.crossStreet?.name ? <View style={styles.crossStreetGroup}><Text style={styles.crossStreetLabel}>CROSS STREET</Text><Text adjustsFontSizeToFit minimumFontScale={0.65} style={styles.crossStreetName} numberOfLines={1}>{locationDetails.crossStreet.name.toUpperCase()} <Text style={styles.crossStreetDistance}>· {Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT</Text></Text></View> : <Text style={styles.crossStreetUnavailable}>CROSS STREET · NOT AVAILABLE</Text>}
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.travelDirection, travelDirection.label !== 'STOPPED' && styles.travelDirectionMoving]}>{travelDirection.label} · {locationAge(partner.location?.timestamp)}</Text>
+      </View>
+    </>
+  );
+  const mapPanel = (frameStyle) => (
+    <View style={[styles.mapFrame, frameStyle]}>
           <MapView
             ref={mapRef}
             style={styles.map}
@@ -258,15 +246,21 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             <View style={[styles.presenceDot, styles[`${presence.quality}Dot`]]} />
             <Text style={styles.liveMapText}>LIVE PARTNER MAP</Text>
           </View>
+    </View>
+  );
+  const directionsButton = <Pressable accessibilityRole="button" onPress={confirmAndNavigate} style={({ pressed }) => [styles.navigateButton, pressed && styles.pressed]}><Text style={styles.navigateText}>OPEN DIRECTIONS</Text></Pressable>;
+
+  return (
+    <View style={styles.container}>
+      <Pressable accessibilityRole="button" onPress={onBack} style={[styles.backButton, isLandscape && styles.backButtonLandscape]}><Text style={styles.backText}>‹ PARTNERS</Text></Pressable>
+      {isLandscape ? (
+        <View style={styles.landscapeContent}>
+          <View style={styles.landscapeInfo}>{identityAndLocation}{directionsButton}</View>
+          <View style={styles.landscapeMap}>{mapPanel(styles.mapFrameFill)}</View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          onPress={confirmAndNavigate}
-          style={({ pressed }) => [styles.navigateButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.navigateText}>OPEN DIRECTIONS</Text>
-        </Pressable>
-      </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>{identityAndLocation}{mapPanel({ height: Math.max(230, Math.min(315, height * 0.36)) })}{directionsButton}</ScrollView>
+      )}
     </View>
   );
 }
@@ -274,8 +268,12 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   backButton: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 18 },
+  backButtonLandscape: { minHeight: 38, paddingHorizontal: 22 },
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 },
+  landscapeContent: { flex: 1, flexDirection: 'row', paddingHorizontal: 22, paddingBottom: 14, gap: 16 },
+  landscapeInfo: { width: '34%', justifyContent: 'center', alignItems: 'center' },
+  landscapeMap: { flex: 1 },
   unitHeader: { alignItems: 'center', justifyContent: 'center' },
   unit: { color: colors.accent, fontSize: 21, fontWeight: '900', letterSpacing: 0.8 },
   unitCallSigns: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
@@ -285,8 +283,10 @@ const styles = StyleSheet.create({
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
   pursuitBanner: { color: colors.text, borderColor: '#3478F6', backgroundColor: '#B91C2C' },
   locationSummary: { alignItems: 'center', width: '100%', marginTop: 12 },
+  locationSummaryLandscape: { marginTop: 9 },
   locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 9 },
   partnerStreet: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
+  partnerStreetLandscape: { fontSize: 23, lineHeight: 27 },
   partnerBlock: { color: colors.accent, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
   locality: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginTop: 6 },
   locationDivider: { width: '42%', height: 1, backgroundColor: colors.border, marginTop: 15 },
@@ -303,6 +303,7 @@ const styles = StyleSheet.create({
   offlineDot: { backgroundColor: colors.muted },
   mapFrame: { width: '100%', borderRadius: 12, overflow: 'hidden', marginTop: 11, borderWidth: 1, borderColor: colors.border },
   mapFrameLandscape: { maxWidth: 760 },
+  mapFrameFill: { flex: 1, height: '100%', marginTop: 0 },
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
   mapDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFFFFF' },

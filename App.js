@@ -18,21 +18,22 @@ import { useDutyAssignment } from './src/hooks/useDutyAssignment';
 import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
 import PursuitScreen from './src/screens/PursuitScreen';
 
-function createDemoPartner(location) {
+function createDemoPartners(location) {
   const latitude = location?.coords?.latitude ?? 33.1212;
   const longitude = location?.coords?.longitude ?? -97.1834;
-  return {
-    id: 'demo-partner',
-    name: 'Jordan Martinez',
-    unit: 'Unit 52',
-    callSign: '742',
-    avatarColor: '#7C3AED',
-    dutyStatus: 'pursuit',
-    occupants: ['Jordan Martinez'],
-    occupantCallSigns: ['742'],
+  const samples = [
+    ['Jordan Martinez', '52', '742', 'pursuit', '#7C3AED', 0.003, 0.002],
+    ['Casey Nguyen', '31', '618', 'traffic_stop', '#059669', -0.002, 0.004],
+    ['Taylor Brooks', '18', '405', 'cover_requested', '#DB2777', 0.005, -0.003],
+    ['Morgan Reed', '63', '296', 'available', '#0F766E', -0.004, -0.002],
+    ['Avery Patel', '24', '531', 'available', '#475569', 0.001, -0.005],
+  ];
+  return samples.map(([name, unit, callSign, dutyStatus, avatarColor, latitudeOffset, longitudeOffset], index) => ({
+    id: `demo-partner-${index + 1}`, name, unit: `Unit ${unit}`, callSign, avatarColor, dutyStatus,
+    occupants: [name], occupantCallSigns: [callSign],
     connection: { online: true, quality: 'good', lastSeenAt: Date.now() },
-    location: { latitude: latitude + 0.003, longitude: longitude + 0.002, accuracy: 16, heading: 45, speed: 18, timestamp: Date.now() },
-  };
+    location: { latitude: latitude + latitudeOffset, longitude: longitude + longitudeOffset, accuracy: 16, heading: 45 + index * 35, speed: dutyStatus === 'available' ? 0 : 18, timestamp: Date.now() },
+  }));
 }
 
 export default function App() {
@@ -50,8 +51,8 @@ export default function App() {
   const visiblePartners = membershipsEnabled && workspace?.department
     ? partners.filter((partner) => workspace.visibleDeviceIds.includes(partner.id) && partner.id !== workspace.user.deviceId)
     : partners;
-  const demoPartner = useMemo(() => createDemoPartner(live.location), [live.location?.coords?.latitude, live.location?.coords?.longitude]);
-  const displayedPartners = __DEV__ && !visiblePartners.length ? [demoPartner] : visiblePartners;
+  const demoPartners = useMemo(() => createDemoPartners(live.location), [live.location?.coords?.latitude, live.location?.coords?.longitude]);
+  const displayedPartners = __DEV__ && !visiblePartners.length ? demoPartners : visiblePartners;
   const selectedPartner = displayedPartners.find((partner) => partner.id === selectedPartnerId);
 
   useEffect(() => observeDirectionNotifications(
