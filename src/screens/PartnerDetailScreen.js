@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useMapPreference } from '../hooks/useMapPreference';
@@ -35,8 +35,36 @@ const locationAge = (timestamp) => {
   return `UPDATED ${Math.round(seconds / 60)} MIN AGO`;
 };
 
+function UnitMapMarker({ callSigns, color, selected, mode }) {
+  if (mode === 'dot') {
+    return <View style={[styles.mapDot, { backgroundColor: selected ? colors.accent : color }, selected && styles.selectedMapDot]} />;
+  }
+
+  if (mode === 'compact') {
+    const label = callSigns.length > 1 ? `${callSigns[0]} +${callSigns.length - 1}` : callSigns[0];
+    return (
+      <View style={styles.markerStack}>
+        <View style={[styles.compactMarker, { backgroundColor: color }, selected && styles.selectedCompactMarker]}>
+          <Text style={[styles.compactMarkerText, selected && styles.selectedMarkerText]}>{label}</Text>
+        </View>
+        <View style={[styles.compactMarkerPointer, { borderTopColor: selected ? colors.accent : color }]} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.markerStack}>
+      <View style={[styles.partnerMarker, { backgroundColor: color }, selected && styles.selectedMarker]}>
+        {callSigns.map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={[styles.markerDivider, selected && styles.selectedMarkerDivider]} /> : null}<Text style={[styles.markerCallSign, selected && styles.selectedMarkerText]}>{callSign}</Text></View>)}
+      </View>
+      <View style={[styles.markerPointer, { borderTopColor: selected ? colors.accent : color }]} />
+    </View>
+  );
+}
+
 export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onBack }) {
   const mapRef = useRef(null);
+  const [markerMode, setMarkerMode] = useState('detail');
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const presence = getPartnerPresence(partner);
@@ -52,11 +80,16 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         compassHeading: null,
       });
   const currentUnit = `Unit ${duty?.unitNumber || ''}`;
-  const currentUnitCallSigns = [duty?.callSign, duty?.secondOfficerCallSign].filter(Boolean).join('/');
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
   const unitCallSigns = crewCallSigns(partner).join(' | ');
+  const currentUnitCallSignList = [duty?.callSign, duty?.secondOfficerCallSign].filter(Boolean);
+
+  const updateMarkerMode = (region) => {
+    const nextMode = region.latitudeDelta > 0.5 ? 'dot' : region.latitudeDelta > 0.08 ? 'compact' : 'detail';
+    setMarkerMode((current) => current === nextMode ? current : nextMode);
+  };
 
   const launchNavigation = async (provider = preference) => {
     try {
@@ -178,6 +211,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             userInterfaceStyle="dark"
             customMapStyle={DARK_MAP_STYLE}
             onMapReady={frameBothLocations}
+            onRegionChangeComplete={updateMarkerMode}
             initialRegion={{
               latitude: partner.location.latitude,
               longitude: partner.location.longitude,
@@ -193,22 +227,14 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 }}
                 title={currentUnit}
                 description="Your unit's live GPS location"
-                anchor={{ x: 0.5, y: 1 }}
+                anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }}
               >
-                <View style={styles.markerStack}>
-                  <View style={[styles.partnerMarker, styles.currentUnitMarker, { backgroundColor: duty?.avatarColor || '#2563EB' }]}><Text style={styles.markerCallSign}>{currentUnitCallSigns || '—'}</Text></View>
-                  <View style={[styles.markerPointer, { borderTopColor: duty?.avatarColor || '#1677FF' }]} />
-                </View>
+                <UnitMapMarker callSigns={currentUnitCallSignList.length ? currentUnitCallSignList : ['—']} color={duty?.avatarColor || '#2563EB'} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
-              <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
-                <View style={styles.markerStack}>
-                  <View style={[styles.partnerMarker, { backgroundColor: mapPartner.avatarColor || '#2563EB' }, mapPartner.id === partner.id && styles.selectedMarker]}>
-                    {crewCallSigns(mapPartner).map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={[styles.markerDivider, mapPartner.id === partner.id && styles.selectedMarkerDivider]} /> : null}<Text style={[styles.markerCallSign, mapPartner.id === partner.id && styles.selectedMarkerText]}>{callSign}</Text></View>)}
-                  </View>
-                  <View style={[styles.markerPointer, { borderTopColor: mapPartner.id === partner.id ? colors.accent : mapPartner.avatarColor || colors.accent }]} />
-                </View>
+              <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
+                <UnitMapMarker callSigns={crewCallSigns(mapPartner)} color={mapPartner.avatarColor || '#2563EB'} selected={mapPartner.id === partner.id} mode={markerMode} />
               </Marker>
             ))}
           </MapView>
@@ -261,13 +287,18 @@ const styles = StyleSheet.create({
   mapFrameLandscape: { height: 430, maxWidth: 760 },
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
+  mapDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFFFFF' },
+  selectedMapDot: { width: 17, height: 17, borderRadius: 9, borderWidth: 3 },
+  compactMarker: { minWidth: 42, minHeight: 26, borderRadius: 7, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  selectedCompactMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 3 },
+  compactMarkerText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
+  compactMarkerPointer: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -1 },
   partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
   selectedMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 4 },
   selectedMarkerText: { color: colors.background },
   selectedMarkerDivider: { backgroundColor: 'rgba(11,17,24,0.55)' },
   markerLine: { width: '100%', alignItems: 'center' }, markerDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 2 },
   markerCallSign: { minWidth: 34, color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
-  currentUnitMarker: { borderWidth: 4 },
   markerPointer: { width: 0, height: 0, borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
