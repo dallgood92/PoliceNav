@@ -6,7 +6,7 @@ import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
 import { availableMapChoices, openNavigationTo } from '../services/navigationService';
 import { colors } from '../theme/colors';
 import { getPartnerPresence } from '../utils/presence';
-import { deriveHundredBlock, formatStreet } from '../utils/address';
+import { deriveHundredBlock, formatLocality, formatStreet } from '../utils/address';
 import { formatDirection } from '../utils/direction';
 import { lastName } from '../utils/name';
 
@@ -133,6 +133,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
           <Text style={styles.unitCallSigns}>{unitCallSigns}</Text>
         </View>
+        <View style={styles.sectionDivider} />
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
         <View style={styles.locationSummary}>
@@ -141,6 +142,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             {locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}
           </Text>
           {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
+          <Text style={styles.locality}>{formatLocality(locationDetails.address).toUpperCase()}</Text>
           {locationDetails.crossStreet?.name ? (
             <View style={styles.crossStreetGroup}>
               <Text style={styles.crossStreetLabel}>CROSS STREET</Text>
@@ -217,13 +219,15 @@ const styles = StyleSheet.create({
   unitHeader: { alignItems: 'center', justifyContent: 'center' },
   unit: { color: colors.accent, fontSize: 25, fontWeight: '900', letterSpacing: 0.8 },
   unitCallSigns: { color: colors.muted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
+  sectionDivider: { width: '68%', height: 1, backgroundColor: colors.border, marginTop: 16 },
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
-  locationSummary: { alignItems: 'center', width: '100%', marginTop: 19 },
+  locationSummary: { alignItems: 'center', width: '100%', marginTop: 17 },
   locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 9 },
   partnerStreet: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
   partnerBlock: { color: colors.accent, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
+  locality: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginTop: 6 },
   crossStreetGroup: { alignItems: 'center', marginTop: 15 },
   crossStreetLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   crossStreetName: { color: colors.accent, fontSize: 17, fontWeight: '900', letterSpacing: 0.5, marginTop: 3 },
