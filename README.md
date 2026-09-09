@@ -22,6 +22,7 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - Optional nearby-landmark context when the native geocoder returns a distinct named place; it is hidden when the result resembles an address or locality and never replaces the last valid street/block
 - A no-scroll operational dashboard with portrait and landscape layouts, a compact Apple/Google Maps preference, and paged partner controls
 - Full-screen pursuit mode emphasizing the current street, block, heading, locality, and upcoming/nearest cross street; squad partners see a restrained red/blue pursuit pulse
+- A development-only simulated partner appears when no live partners are available, making the partner row, pursuit styling, map, and detail view testable without adding production data
 - Denton County/TxDOT highway reference-marker lookup when the device is on a recognized highway
 - Service boundaries ready for a future API/WebSocket implementation
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,23 @@ import { useDutyAssignment } from './src/hooks/useDutyAssignment';
 import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
 import PursuitScreen from './src/screens/PursuitScreen';
 
+function createDemoPartner(location) {
+  const latitude = location?.coords?.latitude ?? 33.1212;
+  const longitude = location?.coords?.longitude ?? -97.1834;
+  return {
+    id: 'demo-partner',
+    name: 'Jordan Martinez',
+    unit: 'Unit 52',
+    callSign: '742',
+    avatarColor: '#2563EB',
+    dutyStatus: 'pursuit',
+    occupants: ['Jordan Martinez'],
+    occupantCallSigns: ['742'],
+    connection: { online: true, quality: 'good', lastSeenAt: Date.now() },
+    location: { latitude: latitude + 0.003, longitude: longitude + 0.002, accuracy: 16, heading: 45, speed: 18, timestamp: Date.now() },
+  };
+}
+
 export default function App() {
   const [selectedPartnerId, setSelectedPartnerId] = useState(null);
   const [showDepartment, setShowDepartment] = useState(false);
@@ -33,7 +50,9 @@ export default function App() {
   const visiblePartners = membershipsEnabled && workspace?.department
     ? partners.filter((partner) => workspace.visibleDeviceIds.includes(partner.id) && partner.id !== workspace.user.deviceId)
     : partners;
-  const selectedPartner = visiblePartners.find((partner) => partner.id === selectedPartnerId);
+  const demoPartner = useMemo(() => createDemoPartner(live.location), [live.location?.coords?.latitude, live.location?.coords?.longitude]);
+  const displayedPartners = __DEV__ && !visiblePartners.length ? [demoPartner] : visiblePartners;
+  const selectedPartner = displayedPartners.find((partner) => partner.id === selectedPartnerId);
 
   useEffect(() => observeDirectionNotifications(
     (partner, provider) => openNavigationTo(partner, provider, { armAlert: false }),
@@ -95,7 +114,7 @@ export default function App() {
         ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
-            partners={visiblePartners}
+            partners={displayedPartners}
             duty={duty.assignment}
             userLocation={live.location}
             onBack={() => setSelectedPartnerId(null)}
@@ -103,7 +122,7 @@ export default function App() {
         ) : (
           <HomeScreen
             live={live}
-            partners={visiblePartners}
+            partners={displayedPartners}
             department={workspace?.department}
             squads={workspace?.squads}
             officer={session.officer}
