@@ -19,6 +19,7 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - Push-assisted direction refresh: opening directions arms a movement watch; tapping the iOS alert fetches the newest partner position and reopens the selected map
 - Device-based test profiles, department creation/join approvals, squad management, and squad-only dashboard visibility
 - Denton County-first road/address lookup using the county's public 911 GIS layer, with native reverse geocoding as fallback
+- Optional nearby-landmark context when the native geocoder returns a distinct named place; it is hidden when the result resembles an address or locality and never replaces the last valid street/block
 - Denton County/TxDOT highway reference-marker lookup when the device is on a recognized highway
 - Service boundaries ready for a future API/WebSocket implementation
 

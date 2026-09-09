@@ -10,6 +10,16 @@ const GEOCODE_MIN_DISTANCE_METERS = 12;
 const GEOCODE_MAX_AGE_MS = 5000;
 const GEOCODE_ERROR_BACKOFF_MS = 30000;
 
+function nearbyPlaceName(result) {
+  const name = result?.name?.trim();
+  if (!name || /^\d/.test(name)) return null;
+  const normalized = name.toUpperCase();
+  const addressParts = [result.street, result.city, result.district, result.region]
+    .filter(Boolean)
+    .map((value) => value.trim().toUpperCase());
+  return addressParts.includes(normalized) ? null : name;
+}
+
 export function useLiveLocation() {
   const [location, setLocation] = useState(null);
   const [heading, setHeading] = useState(null);
@@ -48,12 +58,21 @@ export function useLiveLocation() {
         setAddress(countyResult.address);
         setCrossStreet(countyResult.crossStreet || null);
         const nativeResult = await reverseGeocode(latitude, longitude).catch(() => null);
-        setNearbyPlace(nativeResult?.name && nativeResult.name !== nativeResult.street ? nativeResult.name : null);
+        setNearbyPlace(nearbyPlaceName(nativeResult));
       } else {
         const result = await reverseGeocode(latitude, longitude);
-        if (result) setAddress(result);
+        if (result?.street) {
+          setAddress(result);
+        } else if (result) {
+          // A reverse geocoder may return only a park, business, or other POI
+          // name. Keep the last real street instead of promoting that landmark
+          // into the primary location display.
+          setAddress((current) => current
+            ? { ...current, city: result.city || current.city, district: result.district || current.district, region: result.region || current.region }
+            : result);
+        }
         setCrossStreet(null);
-        setNearbyPlace(result?.name && result.name !== result.street ? result.name : null);
+        setNearbyPlace(nearbyPlaceName(result));
       }
       geocodeBackoffUntilRef.current = 0;
       setError(null);

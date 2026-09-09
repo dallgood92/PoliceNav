@@ -26,7 +26,12 @@ export default function LocationHero({ location, heading, address, crossStreet, 
           <Text style={styles.markerDistance}>{Math.round(crossStreet.distanceMeters * 3.28084)} FT AWAY</Text>
         </View>
       ) : null}
-      {nearbyPlace ? <Text style={styles.nearbyPlace}>NEAR {nearbyPlace.toUpperCase()}</Text> : null}
+      {nearbyPlace ? (
+        <View style={styles.landmark}>
+          <Text style={styles.landmarkLabel}>NEARBY LANDMARK</Text>
+          <Text style={styles.nearbyPlace} numberOfLines={1}>{nearbyPlace.toUpperCase()}</Text>
+        </View>
+      ) : null}
       <Text style={styles.direction}>{direction.label}</Text>
       <Text style={styles.locality}>{formatLocality(address)}</Text>
     </View>
@@ -44,7 +49,9 @@ const styles = StyleSheet.create({
   markerLabel: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   markerValue: { color: colors.accent, fontSize: 25, fontWeight: '900', marginTop: 1 },
   markerDistance: { color: colors.muted, fontSize: 9, fontWeight: '700', marginTop: 1 },
-  nearbyPlace: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginTop: 12, textAlign: 'center' },
+  landmark: { alignItems: 'center', marginTop: 13 },
+  landmarkLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  nearbyPlace: { color: colors.accent, fontSize: 15, fontWeight: '900', letterSpacing: 0.6, marginTop: 3, textAlign: 'center' },
   direction: { color: colors.text, fontSize: 25, fontWeight: '800', textAlign: 'center', marginTop: 13 },
   locality: { color: colors.muted, fontSize: 17, marginTop: 9 },
 });

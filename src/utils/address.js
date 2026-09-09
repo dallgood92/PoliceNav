@@ -14,7 +14,7 @@ export function deriveHundredBlock(address) {
 
 export function formatStreet(address) {
   if (!address) return 'LOCATING STREET…';
-  return (address.street || address.name || 'STREET UNAVAILABLE').toUpperCase();
+  return (address.street || 'STREET UNAVAILABLE').toUpperCase();
 }
 
 export function formatLocality(address) {
