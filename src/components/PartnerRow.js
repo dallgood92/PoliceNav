@@ -1,29 +1,41 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { distanceInMeters, formatDistance } from '../utils/geo';
 import { getPartnerPresence } from '../utils/presence';
 import { lastName } from '../utils/name';
 
-export default function PartnerRow({ partner, userLocation, onPress }) {
+export default function PartnerRow({ partner, userLocation, onPress, compact = false }) {
+  const pursuitPulse = useRef(new Animated.Value(0)).current;
   const distance = userLocation ? distanceInMeters(userLocation.coords, partner.location) : Infinity;
   const presence = getPartnerPresence(partner);
 
+  const isPursuit = partner.dutyStatus === 'pursuit';
+  useEffect(() => {
+    if (!isPursuit) { pursuitPulse.stopAnimation(); pursuitPulse.setValue(0); return undefined; }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(pursuitPulse, { toValue: 1, duration: 900, useNativeDriver: false }),
+      Animated.timing(pursuitPulse, { toValue: 0, duration: 900, useNativeDriver: false }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [isPursuit, pursuitPulse]);
   const alertStyle = partner.dutyStatus === 'cover_requested'
     ? styles.coverAlert
-    : partner.dutyStatus === 'traffic_stop' ? styles.trafficStop : null;
+    : partner.dutyStatus === 'traffic_stop' ? styles.trafficStop : isPursuit ? styles.pursuitAlert : null;
   const dutyLabel = partner.dutyStatus === 'cover_requested'
     ? 'COVER REQUESTED'
-    : partner.dutyStatus === 'traffic_stop' ? 'TRAFFIC STOP' : null;
+    : partner.dutyStatus === 'traffic_stop' ? 'TRAFFIC STOP' : isPursuit ? 'PURSUIT' : null;
   const highlighted = Boolean(alertStyle);
   const crew = (partner.occupants?.length ? partner.occupants : [partner.name])
     .map((name, index) => ({ name: lastName(name), callSign: partner.occupantCallSigns?.[index] || (index === 0 ? partner.callSign : null) || '—' }));
 
-  return (
+  const row = (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${partner.name}, ${presence.label}, ${formatDistance(distance)} away`}
       onPress={() => onPress(partner)}
-      style={({ pressed }) => [styles.row, alertStyle, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, compact && styles.compactRow, alertStyle, pressed && styles.pressed]}
     >
       <View style={[styles.badge, { backgroundColor: partner.avatarColor || '#2563EB' }, highlighted && styles.alertBadge]}>
         {crew.map((member, index) => (
@@ -54,12 +66,19 @@ export default function PartnerRow({ partner, userLocation, onPress }) {
       <Text style={[styles.chevron, highlighted && styles.alertInk]}>›</Text>
     </Pressable>
   );
+  return isPursuit ? (
+    <Animated.View style={{ backgroundColor: pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#B91C2C', '#174EA6'] }), borderRadius: 10 }}>
+      {row}
+    </Animated.View>
+  ) : row;
 }
 
 const styles = StyleSheet.create({
   row: { minHeight: 96, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderRadius: 10, marginBottom: 7, borderColor: colors.border, backgroundColor: colors.panel },
+  compactRow: { minHeight: 82, paddingVertical: 7, marginBottom: 5 },
   trafficStop: { backgroundColor: colors.accent, borderColor: colors.accent },
   coverAlert: { backgroundColor: colors.danger, borderColor: colors.danger },
+  pursuitAlert: { backgroundColor: 'transparent', borderColor: '#FFFFFF' },
   alertInk: { color: colors.background },
   pressed: { backgroundColor: colors.panelRaised },
   badge: { width: 54, minHeight: 56, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.7)', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 5 },

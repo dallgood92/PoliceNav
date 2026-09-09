@@ -3,7 +3,7 @@ import { colors } from '../theme/colors';
 import { deriveHundredBlock, formatLocality, formatStreet } from '../utils/address';
 import { formatDirection } from '../utils/direction';
 
-export default function LocationHero({ location, heading, address, crossStreet, nearbyPlace }) {
+export default function LocationHero({ location, heading, address, crossStreet, nearbyPlace, compact = false }) {
   const block = deriveHundredBlock(address);
   const direction = formatDirection({
     course: location?.coords.heading,
@@ -12,7 +12,7 @@ export default function LocationHero({ location, heading, address, crossStreet, 
   });
 
   return (
-    <View style={styles.container} accessibilityRole="summary">
+    <View style={[styles.container, compact && styles.compactContainer]} accessibilityRole="summary">
       <View style={styles.liveRow}>
         <View style={styles.liveDot} />
         <Text style={styles.liveText}>LIVE LOCATION</Text>
@@ -26,7 +26,7 @@ export default function LocationHero({ location, heading, address, crossStreet, 
           <Text style={styles.markerDistance}>{Math.round(crossStreet.distanceMeters * 3.28084)} FT AWAY</Text>
         </View>
       ) : null}
-      {nearbyPlace ? (
+      {nearbyPlace && !compact ? (
         <View style={styles.landmark}>
           <Text style={styles.landmarkLabel}>NEARBY LANDMARK</Text>
           <Text style={styles.nearbyPlace} numberOfLines={1}>{nearbyPlace.toUpperCase()}</Text>
@@ -40,6 +40,7 @@ export default function LocationHero({ location, heading, address, crossStreet, 
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingHorizontal: 18, paddingVertical: 22 },
+  compactContainer: { paddingHorizontal: 10, paddingVertical: 8 },
   liveRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.success, marginRight: 8 },
   liveText: { color: colors.success, fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },

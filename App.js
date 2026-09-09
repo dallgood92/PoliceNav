@@ -16,6 +16,7 @@ import SignInScreen from './src/screens/SignInScreen';
 import DepartmentScreen from './src/screens/DepartmentScreen';
 import { useDutyAssignment } from './src/hooks/useDutyAssignment';
 import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
+import PursuitScreen from './src/screens/PursuitScreen';
 
 export default function App() {
   const [selectedPartnerId, setSelectedPartnerId] = useState(null);
@@ -89,6 +90,8 @@ export default function App() {
             onDone={() => setShowDepartment(false)}
             onSignOut={session.signOut}
           />
+        ) : duty.assignment.status === 'pursuit' ? (
+          <PursuitScreen live={live} onTerminate={() => changeDuty({ ...duty.assignment, status: 'available' })} />
         ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
