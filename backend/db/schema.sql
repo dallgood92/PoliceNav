@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT CHECK (role IN ('admin', 'member'))
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS call_sign TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS unit_number TEXT;
+
 DO $$ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'departments_created_by_fkey'

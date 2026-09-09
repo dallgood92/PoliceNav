@@ -14,7 +14,8 @@ export function useLiveLocation() {
   const [location, setLocation] = useState(null);
   const [heading, setHeading] = useState(null);
   const [address, setAddress] = useState(null);
-  const [mileMarker, setMileMarker] = useState(null);
+  const [crossStreet, setCrossStreet] = useState(null);
+  const [nearbyPlace, setNearbyPlace] = useState(null);
   const [permissionStatus, setPermissionStatus] = useState('checking');
   const [error, setError] = useState(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -45,11 +46,14 @@ export function useLiveLocation() {
 
       if (countyResult?.address) {
         setAddress(countyResult.address);
-        setMileMarker(countyResult.mileMarker);
+        setCrossStreet(countyResult.crossStreet || null);
+        const nativeResult = await reverseGeocode(latitude, longitude).catch(() => null);
+        setNearbyPlace(nativeResult?.name && nativeResult.name !== nativeResult.street ? nativeResult.name : null);
       } else {
         const result = await reverseGeocode(latitude, longitude);
         if (result) setAddress(result);
-        setMileMarker(null);
+        setCrossStreet(null);
+        setNearbyPlace(result?.name && result.name !== result.street ? result.name : null);
       }
       geocodeBackoffUntilRef.current = 0;
       setError(null);
@@ -128,7 +132,8 @@ export function useLiveLocation() {
     location,
     heading,
     address,
-    mileMarker,
+    crossStreet,
+    nearbyPlace,
     permissionStatus,
     error,
     isGeocoding,

@@ -5,8 +5,6 @@ const DIRECTIONS = [
   'WEST',
 ];
 
-const ARROWS = ['↑', '→', '↓', '←'];
-
 export function normalizeDegrees(degrees) {
   return ((degrees % 360) + 360) % 360;
 }
@@ -22,13 +20,12 @@ export function formatDirection({ course, speed, compassHeading }) {
   const degrees = isMoving && hasCourse ? course : hasCompass ? compassHeading : null;
 
   if (degrees === null) {
-    return { label: 'DIRECTION UNAVAILABLE', arrow: '—', degrees: null, source: 'none' };
+    return { label: 'DIRECTION UNAVAILABLE', degrees: null, source: 'none' };
   }
 
   const index = directionIndex(degrees);
   return {
-    label: isMoving && hasCourse ? `${DIRECTIONS[index]}BOUND` : `FACING ${DIRECTIONS[index]}`,
-    arrow: ARROWS[index],
+    label: isMoving && hasCourse ? `${DIRECTIONS[index]}BOUND` : `STOPPED · FACING ${DIRECTIONS[index]}`,
     degrees: Math.round(normalizeDegrees(degrees)),
     source: isMoving && hasCourse ? 'course' : 'compass',
   };

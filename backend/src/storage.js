@@ -20,6 +20,10 @@ const userFromRow = (row) => row && ({
   deviceId: row.device_id,
   departmentId: row.department_id,
   role: row.role,
+  firstName: row.first_name,
+  lastName: row.last_name,
+  callSign: row.call_sign,
+  unitNumber: row.unit_number,
 });
 
 const departmentFromRow = (row) => row && ({
@@ -60,13 +64,15 @@ export async function storageHealth() {
 
 export async function upsertUser(input) {
   const result = await database.query(
-    `INSERT INTO users (id, email, name, picture, device_id)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (id) DO UPDATE SET
+    `INSERT INTO users (id, email, name, picture, device_id, first_name, last_name, call_sign, unit_number)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (device_id) DO UPDATE SET
        email = EXCLUDED.email, name = EXCLUDED.name,
-       picture = EXCLUDED.picture, device_id = EXCLUDED.device_id
+       picture = EXCLUDED.picture, first_name = EXCLUDED.first_name,
+       last_name = EXCLUDED.last_name, call_sign = EXCLUDED.call_sign,
+       unit_number = EXCLUDED.unit_number
      RETURNING *`,
-    [input.id, input.email, input.name, input.picture || null, input.deviceId],
+    [input.id, input.email, input.name, input.picture || null, input.deviceId, input.firstName || null, input.lastName || null, input.callSign, input.unitNumber],
   );
   return userFromRow(result.rows[0]);
 }

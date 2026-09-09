@@ -12,6 +12,18 @@ Notifications.setNotificationHandler({
   }),
 });
 
+export async function configureAlertAudio() {
+  if (Device.osName === 'Android') {
+    await Notifications.setNotificationChannelAsync('squad-alerts', {
+      name: 'Squad alerts',
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'default',
+      vibrationPattern: [0, 300, 150, 500],
+      enableVibrate: true,
+    });
+  }
+}
+
 async function pushToken() {
   if (!Device.isDevice) throw new Error('Push alerts require a physical phone.');
   const current = await Notifications.getPermissionsAsync();

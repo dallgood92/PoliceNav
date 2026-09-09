@@ -34,8 +34,7 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "extra": {
       "eas": {

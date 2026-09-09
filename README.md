@@ -17,7 +17,7 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - Explicit on-duty background-sharing control that uploads navigation-grade GPS fixes over HTTPS
 - A small Node.js WebSocket/HTTP reference server under `backend/`
 - Push-assisted direction refresh: opening directions arms a movement watch; tapping the iOS alert fetches the newest partner position and reopens the selected map
-- Google OAuth-ready officer sessions, department creation/join approvals, squad management, and squad-only dashboard visibility
+- Device-based test profiles, department creation/join approvals, squad management, and squad-only dashboard visibility
 - Denton County-first road/address lookup using the county's public 911 GIS layer, with native reverse geocoding as fallback
 - Denton County/TxDOT highway reference-marker lookup when the device is on a recognized highway
 - Service boundaries ready for a future API/WebSocket implementation
@@ -78,12 +78,9 @@ The client intentionally has no production server address checked into source co
 ```text
 EXPO_PUBLIC_LOCATION_API_URL=https://your-deployed-server.example.com
 EXPO_PUBLIC_LOCATION_API_TOKEN=your-temporary-pilot-token
-EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=your-ios-client-id.apps.googleusercontent.com
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=your-android-client-id.apps.googleusercontent.com
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
 ```
 
-Google sign-in requires OAuth clients configured for the app's iOS bundle identifier, Android package/signing certificate, and `blockwatch` redirect scheme. A build without those client IDs shows a configuration message and cannot create a placeholder user. The client IDs are public identifiers; do not place a Google client secret in the mobile app.
+For the current pilot, each installation asks for first name, last name, call sign, and unit number. The generated device ID and profile are remembered locally and upserted in PostgreSQL, so reopening the app recognizes the same device without a login.
 
 The department creator becomes its first admin and is placed in a default **Patrol** squad. Other signed-in users request access, an admin approves them, and then assigns them to one or more squads. The partner dashboard filters the live location stream to device IDs belonging to the signed-in officer's squads.
 
@@ -193,8 +190,7 @@ Before using partner location operationally, add freshness indicators, stale/off
 4. **Background location** — field-test battery tuning and OS delivery behavior; complete store-policy disclosures and agency privacy review.
 5. **Map handoff** — add Waze, route modes, and additional graceful fallbacks. Apple Maps/Google Maps preference and stale-location confirmation are included.
 6. **Authoritative blocks** — evaluate municipal GIS/address-range data rather than relying solely on reverse-geocoder street numbers.
-7. **Highway reference markers** — implement `mileMarkerService` against an authoritative state DOT linear-reference source. For Texas, use TxDOT eLRS/reference-marker data; keep results asynchronous and display their age/source.
-8. **Operational hardening** — tests, accessibility review, secure telemetry, threat modeling, incident response, data minimization, and field trials.
+7. **Operational hardening** — tests, accessibility review, secure telemetry, threat modeling, incident response, data minimization, and field trials.
 
 ## Useful files
 

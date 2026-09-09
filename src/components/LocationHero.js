@@ -3,7 +3,7 @@ import { colors } from '../theme/colors';
 import { deriveHundredBlock, formatLocality, formatStreet } from '../utils/address';
 import { formatDirection } from '../utils/direction';
 
-export default function LocationHero({ location, heading, address, mileMarker }) {
+export default function LocationHero({ location, heading, address, crossStreet, nearbyPlace }) {
   const block = deriveHundredBlock(address);
   const direction = formatDirection({
     course: location?.coords.heading,
@@ -19,14 +19,14 @@ export default function LocationHero({ location, heading, address, mileMarker })
       </View>
       {block ? <Text style={styles.block}>{block}</Text> : null}
       <Text style={styles.street} numberOfLines={2}>{formatStreet(address)}</Text>
-      {mileMarker ? (
+      {crossStreet ? (
         <View style={styles.markerPanel}>
-          <Text style={styles.markerLabel}>{mileMarker.route} · REFERENCE MARKER</Text>
-          <Text style={styles.markerValue}>{mileMarker.marker}</Text>
-          <Text style={styles.markerDistance}>NEAREST POST · {(mileMarker.distanceMeters / 1609.344).toFixed(1)} MI</Text>
+          <Text style={styles.markerLabel}>NEAREST CROSS STREET</Text>
+          <Text style={styles.markerValue}>{crossStreet.name}</Text>
+          <Text style={styles.markerDistance}>{Math.round(crossStreet.distanceMeters * 3.28084)} FT AWAY</Text>
         </View>
       ) : null}
-      <Text style={styles.arrow}>{direction.arrow}</Text>
+      {nearbyPlace ? <Text style={styles.nearbyPlace}>NEAR {nearbyPlace.toUpperCase()}</Text> : null}
       <Text style={styles.direction}>{direction.label}</Text>
       <Text style={styles.locality}>{formatLocality(address)}</Text>
     </View>
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   markerLabel: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   markerValue: { color: colors.accent, fontSize: 25, fontWeight: '900', marginTop: 1 },
   markerDistance: { color: colors.muted, fontSize: 9, fontWeight: '700', marginTop: 1 },
-  arrow: { color: colors.accent, fontSize: 66, lineHeight: 72, marginTop: 12 },
-  direction: { color: colors.text, fontSize: 25, fontWeight: '800', textAlign: 'center' },
+  nearbyPlace: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginTop: 12, textAlign: 'center' },
+  direction: { color: colors.text, fontSize: 25, fontWeight: '800', textAlign: 'center', marginTop: 13 },
   locality: { color: colors.muted, fontSize: 17, marginTop: 9 },
 });

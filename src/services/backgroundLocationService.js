@@ -24,8 +24,8 @@ export async function startBackgroundSharing() {
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
     accuracy: Location.Accuracy.BestForNavigation,
     activityType: Location.ActivityType.AutomotiveNavigation,
-    distanceInterval: 5,
-    timeInterval: 2000,
+    distanceInterval: 0,
+    timeInterval: 1000,
     deferredUpdatesDistance: 0,
     deferredUpdatesInterval: 0,
     pausesUpdatesAutomatically: false,

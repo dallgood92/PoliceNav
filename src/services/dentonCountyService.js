@@ -125,33 +125,11 @@ function addressFromCounty(feature, road) {
   };
 }
 
-function roadRouteNumber(road) {
-  const routeNumber = clean(road?.attributes?.RTNO)?.match(/\d+/)?.[0];
-  if (routeNumber) return String(Number.parseInt(routeNumber, 10));
-  const streetNumber = clean(road?.attributes?.Street)?.match(/\b(?:I|IH|US|SH|FM)[- ]?(\d+)\b/i)?.[1];
-  return streetNumber ? String(Number.parseInt(streetNumber, 10)) : null;
-}
-
-function isHighwayRoad(road) {
-  if (!road || road.distanceMeters > 45) return false;
-  const value = `${road.attributes.MAJOR_RDS || ''} ${road.attributes.Street || ''}`.toUpperCase();
-  return Boolean(roadRouteNumber(road)) && /\b(INT|INTERSTATE|IH|I[- ]?\d|US|SH|STATE HWY|FM|TOLL)\b/.test(value);
-}
-
-function formatRouteName(attributes) {
-  const encoded = clean(attributes.RTE_NM) || '';
-  if (encoded.startsWith('IH')) return `I-${Number.parseInt(attributes.RTE_NBR, 10)}`;
-  if (encoded.startsWith('US')) return `US ${Number.parseInt(attributes.RTE_NBR, 10)}`;
-  if (encoded.startsWith('FM')) return `FM ${Number.parseInt(attributes.RTE_NBR, 10)}`;
-  if (encoded.startsWith('SH')) return `SH ${Number.parseInt(attributes.RTE_NBR, 10)}`;
-  return clean(attributes.RTE_NBR) || encoded.split('-')[0];
-}
-
 export async function lookupDentonCountyLocation(latitude, longitude) {
   if (!isInDentonCounty(latitude, longitude)) return null;
 
   const location = { latitude, longitude };
-  const [addressFeatures, roadFeatures, markerFeatures] = await Promise.all([
+  const [addressFeatures, roadFeatures] = await Promise.all([
     queryFeatures(
       queryUrl(
         `${PUBLIC_SAFETY_URL}/8`,
@@ -170,15 +148,6 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
         'Street,RTNO,LLO,LHI,RLO,RHI,LTwn,RTwn,MAJOR_RDS',
       ),
     ),
-    queryFeatures(
-      queryUrl(
-        `${PUBLIC_SAFETY_URL}/7`,
-        latitude,
-        longitude,
-        3219,
-        'RTE_NM,RTE_NBR,DFO,MRKR_NBR,MRKR_SFX,RDBD_TYPE',
-      ),
-    ),
   ]);
 
   const road = nearestRoad(roadFeatures, location);
@@ -188,11 +157,6 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
     (feature) => normalizedStreet(feature.attributes.STREET) === roadStreet,
   );
   const address = nearestPoint(sameRoadAddresses.length ? sameRoadAddresses : addressFeatures, location);
-  const routeNumber = roadRouteNumber(road);
-  const matchingMarkers = markerFeatures.filter(
-    (feature) => String(Number.parseInt(feature.attributes.RTE_NBR, 10)) === routeNumber,
-  );
-  const marker = isHighwayRoad(road) ? nearestPoint(matchingMarkers, location) : null;
 
   return {
     address: addressFromCounty(address, road),
@@ -208,14 +172,6 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
           name: clean(crossStreet.attributes.Street),
           distanceMeters: crossStreet.distanceMeters,
           source: 'Denton County Roads GIS',
-        }
-      : null,
-    mileMarker: marker
-      ? {
-          route: formatRouteName(marker.attributes),
-          marker: `${marker.attributes.MRKR_NBR}${clean(marker.attributes.MRKR_SFX) || ''}`,
-          distanceMeters: marker.distanceMeters,
-          source: 'Denton County / TxDOT GIS',
         }
       : null,
   };

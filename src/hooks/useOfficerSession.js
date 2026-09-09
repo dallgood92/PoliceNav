@@ -1,33 +1,23 @@
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { upsertOfficer } from '../services/departmentService';
+import { getDeviceId } from '../services/locationApi';
+import { loadDutyAssignment, saveDutyAssignment } from '../services/dutyService';
 
-WebBrowser.maybeCompleteAuthSession();
 const SESSION_KEY = '@blockwatch/officer-session';
+const PROFILE_VERSION = 2;
 
 export function useOfficerSession() {
   const [officer, setOfficer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const configured = Boolean(iosClientId || androidClientId || webClientId);
-  const placeholderClientId = 'demo-disabled.apps.googleusercontent.com';
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: iosClientId || placeholderClientId,
-    androidClientId: androidClientId || placeholderClientId,
-    webClientId: webClientId || placeholderClientId,
-  });
 
   useEffect(() => {
     AsyncStorage.getItem(SESSION_KEY)
       .then(async (saved) => {
         if (!saved) return;
         const profile = JSON.parse(saved);
-        if (profile.id === 'demo-admin') {
+        if (profile.profileVersion !== PROFILE_VERSION) {
           await AsyncStorage.removeItem(SESSION_KEY);
           return;
         }
@@ -37,31 +27,31 @@ export function useOfficerSession() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (response?.type !== 'success' || !response.authentication?.accessToken) return;
-    setLoading(true);
-    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${response.authentication.accessToken}` },
-    })
-      .then((result) => result.json())
-      .then((profile) => signInProfile({ id: profile.sub, email: profile.email, name: profile.name, picture: profile.picture }))
-      .catch(() => setError('Google sign-in could not be completed.'))
-      .finally(() => setLoading(false));
-  }, [response]);
-
-  const signInProfile = async (profile) => {
-    const result = await upsertOfficer(profile);
-    setOfficer(result.user);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(result.user));
-  };
-
-  const signIn = async () => {
+  const register = async ({ firstName, lastName, callSign, unitNumber }) => {
     setError(null);
-    if (!configured) {
-      setError('Google sign-in is not configured for this build.');
-      return;
+    setLoading(true);
+    try {
+      const deviceId = await getDeviceId();
+      const profile = {
+        id: deviceId,
+        email: `${deviceId}@device.squadnav.local`,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        callSign: callSign.trim(),
+        unitNumber: unitNumber.trim(),
+      };
+      const result = await upsertOfficer(profile);
+      const savedOfficer = { ...result.user, callSign: profile.callSign, unitNumber: profile.unitNumber, profileVersion: PROFILE_VERSION };
+      const duty = await loadDutyAssignment();
+      await saveDutyAssignment({ ...duty, callSign: profile.callSign, unitNumber: profile.unitNumber });
+      setOfficer(savedOfficer);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(savedOfficer));
+    } catch {
+      setError('Your profile could not be saved. Check the server connection and try again.');
+    } finally {
+      setLoading(false);
     }
-    await promptAsync();
   };
 
   const signOut = async () => {
@@ -69,5 +59,5 @@ export function useOfficerSession() {
     setOfficer(null);
   };
 
-  return { officer, loading, error, configured, request, signIn, signOut };
+  return { officer, loading, error, register, signOut };
 }

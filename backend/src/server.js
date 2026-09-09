@@ -42,7 +42,7 @@ async function sendMovementAlert(watch, partner) {
   const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      to: pushToken, sound: 'default', title: `${partner.name} has moved`,
+      to: pushToken, sound: 'default', channelId: 'squad-alerts', priority: 'high', title: `${partner.name} has moved`,
       body: 'Tap to refresh directions to their latest reported location.',
       data: { type: 'refresh-partner-directions', partnerId: partner.id, partnerName: partner.name, partnerUnit: partner.unit, latitude: partner.location.latitude, longitude: partner.location.longitude, provider: watch.provider },
     }),
@@ -67,7 +67,7 @@ async function sendCoverAlerts(partner) {
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(tokens.map((pushToken) => ({
-      to: pushToken, sound: 'default', priority: 'high',
+      to: pushToken, sound: 'default', channelId: 'squad-alerts', priority: 'high',
       title: `COVER REQUESTED · ${partner.unit}`,
       body: `${partner.name} (Call ${partner.callSign || '—'}) is requesting cover. Tap for directions.`,
       data: { type: 'cover-request', partnerId: partner.id, partnerName: partner.name, partnerUnit: partner.unit, latitude: partner.location.latitude, longitude: partner.location.longitude, provider: 'automatic' },
@@ -93,7 +93,7 @@ const server = createServer(async (req, res) => {
 
     const body = await readBody(req);
     if (req.method === 'POST' && url.pathname === '/users/upsert') {
-      if (!body?.id || !body?.email || !body?.name || !body?.deviceId) return reply(res, 400, { error: 'Invalid user.' });
+      if (!body?.id || !body?.email || !body?.name || !body?.deviceId || !body?.callSign || !body?.unitNumber) return reply(res, 400, { error: 'Invalid user.' });
       return reply(res, 200, { user: await store.upsertUser(body) });
     }
     if (req.method === 'POST' && url.pathname === '/departments') {
