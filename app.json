@@ -24,7 +24,14 @@
       ]
     },
     "plugins": [
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/cover_alert.wav"
+          ]
+        }
+      ],
       [
         "expo-location",
         {

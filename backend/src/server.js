@@ -67,7 +67,7 @@ async function sendCoverAlerts(partner) {
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(tokens.map((pushToken) => ({
-      to: pushToken, sound: 'default', channelId: 'squad-alerts', priority: 'high',
+      to: pushToken, sound: 'cover_alert.wav', channelId: 'cover-alerts-v2', priority: 'high',
       title: `COVER REQUESTED · ${partner.unit}`,
       body: `${partner.name} (Call ${partner.callSign || '—'}) is requesting cover. Tap for directions.`,
       data: { type: 'cover-request', partnerId: partner.id, partnerName: partner.name, partnerUnit: partner.unit, latitude: partner.location.latitude, longitude: partner.location.longitude, provider: 'automatic' },

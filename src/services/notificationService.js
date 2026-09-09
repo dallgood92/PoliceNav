@@ -14,11 +14,11 @@ Notifications.setNotificationHandler({
 
 export async function configureAlertAudio() {
   if (Device.osName === 'Android') {
-    await Notifications.setNotificationChannelAsync('squad-alerts', {
-      name: 'Squad alerts',
+    await Notifications.setNotificationChannelAsync('cover-alerts-v2', {
+      name: 'Cover alerts',
       importance: Notifications.AndroidImportance.MAX,
-      sound: 'default',
-      vibrationPattern: [0, 300, 150, 500],
+      sound: 'cover_alert.wav',
+      vibrationPattern: [0, 500, 150, 500, 150, 800],
       enableVibrate: true,
     });
   }
