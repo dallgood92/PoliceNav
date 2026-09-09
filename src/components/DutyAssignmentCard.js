@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { colors } from '../theme/colors';
 import { lastName } from '../utils/name';
 
-const avatarColors = ['#2563EB', '#059669', '#7C3AED', '#D97706', '#DC2626', '#0F766E', '#DB2777', '#475569'];
+const avatarColors = ['#2563EB', '#059669', '#7C3AED', '#0F766E', '#DB2777', '#475569'];
 
 export default function DutyAssignmentCard({ officer, partners = [], assignment, onChange }) {
   const [editing, setEditing] = useState(false);

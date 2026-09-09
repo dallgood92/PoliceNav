@@ -35,7 +35,7 @@ export default function PartnerRow({ partner, userLocation, onPress, compact = f
       accessibilityRole="button"
       accessibilityLabel={`Open ${partner.name}, ${presence.label}, ${formatDistance(distance)} away`}
       onPress={() => onPress(partner)}
-      style={({ pressed }) => [styles.row, compact && styles.compactRow, alertStyle, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, compact && styles.compactRow, alertStyle, isPursuit && styles.pursuitRow, pressed && styles.pressed]}
     >
       <View style={[styles.badge, { backgroundColor: partner.avatarColor || '#2563EB' }, highlighted && styles.alertBadge]}>
         {crew.map((member, index) => (
@@ -67,7 +67,7 @@ export default function PartnerRow({ partner, userLocation, onPress, compact = f
     </Pressable>
   );
   return isPursuit ? (
-    <Animated.View style={{ backgroundColor: pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#B91C2C', '#174EA6'] }), borderRadius: 10 }}>
+    <Animated.View style={[styles.pursuitWrapper, compact && styles.compactPursuitWrapper, { backgroundColor: pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#B91C2C', '#174EA6'] }) }]}>
       {row}
     </Animated.View>
   ) : row;
@@ -76,6 +76,9 @@ export default function PartnerRow({ partner, userLocation, onPress, compact = f
 const styles = StyleSheet.create({
   row: { minHeight: 96, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderRadius: 10, marginBottom: 7, borderColor: colors.border, backgroundColor: colors.panel },
   compactRow: { minHeight: 82, paddingVertical: 7, marginBottom: 5 },
+  pursuitRow: { marginBottom: 0 },
+  pursuitWrapper: { borderRadius: 10, overflow: 'hidden', marginBottom: 7 },
+  compactPursuitWrapper: { marginBottom: 5 },
   trafficStop: { backgroundColor: colors.accent, borderColor: colors.accent },
   coverAlert: { backgroundColor: colors.danger, borderColor: colors.danger },
   pursuitAlert: { backgroundColor: 'transparent', borderColor: '#FFFFFF' },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useMapPreference } from '../hooks/useMapPreference';
 import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
@@ -35,29 +35,43 @@ const locationAge = (timestamp) => {
   return `UPDATED ${Math.round(seconds / 60)} MIN AGO`;
 };
 
-function UnitMapMarker({ callSigns, color, selected, mode }) {
+function UnitMapMarker({ callSigns, color, dutyStatus, selected, mode }) {
+  const pursuitPulse = useRef(new Animated.Value(0)).current;
+  const isPursuit = dutyStatus === 'pursuit';
+  useEffect(() => {
+    if (!isPursuit) { pursuitPulse.stopAnimation(); pursuitPulse.setValue(0); return undefined; }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(pursuitPulse, { toValue: 1, duration: 900, useNativeDriver: false }),
+      Animated.timing(pursuitPulse, { toValue: 0, duration: 900, useNativeDriver: false }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [isPursuit, pursuitPulse]);
+  const staticColor = dutyStatus === 'traffic_stop' ? colors.accent : dutyStatus === 'cover_requested' ? colors.danger : color;
+  const markerColor = isPursuit ? pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#B91C2C', '#174EA6'] }) : staticColor;
+  const darkText = dutyStatus === 'traffic_stop';
   if (mode === 'dot') {
-    return <View style={[styles.mapDot, { backgroundColor: selected ? colors.accent : color }, selected && styles.selectedMapDot]} />;
+    return <Animated.View style={[styles.mapDot, { backgroundColor: markerColor }, selected && styles.selectedMapDot]} />;
   }
 
   if (mode === 'compact') {
     const label = callSigns.length > 1 ? `${callSigns[0]} +${callSigns.length - 1}` : callSigns[0];
     return (
       <View style={styles.markerStack}>
-        <View style={[styles.compactMarker, { backgroundColor: color }, selected && styles.selectedCompactMarker]}>
-          <Text style={[styles.compactMarkerText, selected && styles.selectedMarkerText]}>{label}</Text>
-        </View>
-        <View style={[styles.compactMarkerPointer, { borderTopColor: selected ? colors.accent : color }]} />
+        <Animated.View style={[styles.compactMarker, { backgroundColor: markerColor }, selected && styles.selectedCompactMarker]}>
+          <Text style={[styles.compactMarkerText, darkText && styles.selectedMarkerText]}>{label}</Text>
+        </Animated.View>
+        <Animated.View style={[styles.compactMarkerPointer, { borderTopColor: markerColor }]} />
       </View>
     );
   }
 
   return (
     <View style={styles.markerStack}>
-      <View style={[styles.partnerMarker, { backgroundColor: color }, selected && styles.selectedMarker]}>
-        {callSigns.map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={[styles.markerDivider, selected && styles.selectedMarkerDivider]} /> : null}<Text style={[styles.markerCallSign, selected && styles.selectedMarkerText]}>{callSign}</Text></View>)}
-      </View>
-      <View style={[styles.markerPointer, { borderTopColor: selected ? colors.accent : color }]} />
+      <Animated.View style={[styles.partnerMarker, { backgroundColor: markerColor }, selected && styles.selectedMarker]}>
+        {callSigns.map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={[styles.markerDivider, darkText && styles.selectedMarkerDivider]} /> : null}<Text style={[styles.markerCallSign, darkText && styles.selectedMarkerText]}>{callSign}</Text></View>)}
+      </Animated.View>
+      <Animated.View style={[styles.markerPointer, { borderTopColor: markerColor }]} />
     </View>
   );
 }
@@ -185,6 +199,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         <View style={styles.sectionDivider} />
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
+        {partner.dutyStatus === 'pursuit' ? <Text style={[styles.dutyBanner, styles.pursuitBanner]}>PURSUIT</Text> : null}
         <View style={styles.locationSummary}>
           <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
           <Text style={styles.partnerStreet} numberOfLines={1}>
@@ -205,7 +220,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             {travelDirection.label} · {locationAge(partner.location?.timestamp)}
           </Text>
         </View>
-        <View style={[styles.mapFrame, isLandscape && styles.mapFrameLandscape]}>
+        <View style={[styles.mapFrame, { height: isLandscape ? Math.max(220, height - 120) : Math.max(230, Math.min(315, height * 0.36)) }, isLandscape && styles.mapFrameLandscape]}>
           <MapView
             ref={mapRef}
             style={styles.map}
@@ -230,12 +245,12 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 description="Your unit's live GPS location"
                 anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }}
               >
-                <UnitMapMarker callSigns={currentUnitCallSignList.length ? currentUnitCallSignList : ['—']} color={duty?.avatarColor || '#2563EB'} mode={markerMode} />
+                <UnitMapMarker callSigns={currentUnitCallSignList.length ? currentUnitCallSignList : ['—']} color={duty?.avatarColor || '#2563EB'} dutyStatus={duty?.status} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
               <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
-                <UnitMapMarker callSigns={crewCallSigns(mapPartner)} color={mapPartner.avatarColor || '#2563EB'} selected={mapPartner.id === partner.id} mode={markerMode} />
+                <UnitMapMarker callSigns={crewCallSigns(mapPartner)} color={mapPartner.avatarColor || '#2563EB'} dutyStatus={mapPartner.dutyStatus} selected={mapPartner.id === partner.id} mode={markerMode} />
               </Marker>
             ))}
           </MapView>
@@ -262,13 +277,14 @@ const styles = StyleSheet.create({
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 },
   unitHeader: { alignItems: 'center', justifyContent: 'center' },
-  unit: { color: colors.accent, fontSize: 25, fontWeight: '900', letterSpacing: 0.8 },
-  unitCallSigns: { color: colors.muted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
-  sectionDivider: { width: '68%', height: 1, backgroundColor: colors.border, marginTop: 16 },
+  unit: { color: colors.accent, fontSize: 21, fontWeight: '900', letterSpacing: 0.8 },
+  unitCallSigns: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
+  sectionDivider: { width: '68%', height: 1, backgroundColor: colors.border, marginTop: 11 },
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
-  locationSummary: { alignItems: 'center', width: '100%', marginTop: 17 },
+  pursuitBanner: { color: colors.text, borderColor: '#3478F6', backgroundColor: '#B91C2C' },
+  locationSummary: { alignItems: 'center', width: '100%', marginTop: 12 },
   locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 9 },
   partnerStreet: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
   partnerBlock: { color: colors.accent, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
@@ -285,18 +301,18 @@ const styles = StyleSheet.create({
   goodDot: { backgroundColor: colors.success },
   weakDot: { backgroundColor: colors.warning },
   offlineDot: { backgroundColor: colors.muted },
-  mapFrame: { width: '100%', height: 370, borderRadius: 12, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: colors.border },
-  mapFrameLandscape: { height: 430, maxWidth: 760 },
+  mapFrame: { width: '100%', borderRadius: 12, overflow: 'hidden', marginTop: 11, borderWidth: 1, borderColor: colors.border },
+  mapFrameLandscape: { maxWidth: 760 },
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
   mapDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#FFFFFF' },
   selectedMapDot: { width: 17, height: 17, borderRadius: 9, borderWidth: 3 },
   compactMarker: { minWidth: 42, minHeight: 26, borderRadius: 7, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  selectedCompactMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 3 },
+  selectedCompactMarker: { borderColor: '#FFFFFF', borderWidth: 3 },
   compactMarkerText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
   compactMarkerPointer: { width: 0, height: 0, borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -1 },
   partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
-  selectedMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 4 },
+  selectedMarker: { borderColor: '#FFFFFF', borderWidth: 4 },
   selectedMarkerText: { color: colors.background },
   selectedMarkerDivider: { backgroundColor: 'rgba(11,17,24,0.55)' },
   markerLine: { width: '100%', alignItems: 'center' }, markerDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 2 },
@@ -304,7 +320,7 @@ const styles = StyleSheet.create({
   markerPointer: { width: 0, height: 0, borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
-  navigateButton: { width: '100%', minHeight: 58, backgroundColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  navigateButton: { width: '100%', minHeight: 54, backgroundColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 11 },
   pressed: { opacity: 0.8 },
   navigateText: { color: colors.background, fontSize: 17, fontWeight: '900', letterSpacing: 0.8 },
 });
