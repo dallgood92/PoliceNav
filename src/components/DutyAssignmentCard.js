@@ -44,7 +44,7 @@ export default function DutyAssignmentCard({ officer, partners = [], assignment,
 }
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 14, marginTop: 14, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panel },
+  card: { marginHorizontal: 4, marginTop: 14, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panel },
   denseCard: { marginHorizontal: 4, marginTop: 2, paddingHorizontal: 11, paddingVertical: 9 },
   stopCard: { borderColor: colors.accent, backgroundColor: colors.accent },
   coverCard: { borderColor: colors.danger, backgroundColor: colors.danger },

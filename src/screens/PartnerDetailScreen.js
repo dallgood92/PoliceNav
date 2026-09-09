@@ -114,6 +114,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const routeAbortRef = useRef(null);
   const followResumeTimerRef = useRef(null);
   const cameraTiltTimerRef = useRef(null);
+  const lastCameraFrameRef = useRef(null);
   const [markerMode, setMarkerMode] = useState('detail');
   const [autoFrame, setAutoFrame] = useState(true);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
@@ -229,6 +230,14 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     if (!mapRef.current || (!autoFrame && !force)) return;
     const userCoords = userLocation?.coords;
     const selectedPartnerCoords = partner.location;
+    const previousFrame = lastCameraFrameRef.current;
+    const frameChanged = !previousFrame
+      || previousFrame.width !== width
+      || previousFrame.height !== height
+      || distanceInMeters(previousFrame.user, userCoords) >= 8
+      || distanceInMeters(previousFrame.partner, selectedPartnerCoords) >= 8;
+    if (!force && !frameChanged) return;
+    lastCameraFrameRef.current = { user: userCoords, partner: selectedPartnerCoords, width, height };
     const coordinates = [
       ...(userCoords ? [{ latitude: userCoords.latitude, longitude: userCoords.longitude }] : []),
       ...(Number.isFinite(selectedPartnerCoords?.latitude) && Number.isFinite(selectedPartnerCoords?.longitude)

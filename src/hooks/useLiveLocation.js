@@ -9,6 +9,8 @@ import { distanceInMeters } from '../utils/geo';
 const GEOCODE_MIN_DISTANCE_METERS = 12;
 const GEOCODE_MAX_AGE_MS = 5000;
 const GEOCODE_ERROR_BACKOFF_MS = 30000;
+const STATIONARY_DRIFT_METERS = 8;
+const STOPPED_SPEED_METERS_PER_SECOND = 1.5;
 
 function nearbyPlaceName(result) {
   const name = result?.name?.trim();
@@ -32,6 +34,30 @@ export function useLiveLocation() {
   const lastGeocodeRef = useRef({ location: null, timestamp: 0 });
   const geocodeInFlightRef = useRef(false);
   const geocodeBackoffUntilRef = useRef(0);
+  const lastAcceptedLocationRef = useRef(null);
+
+  const stabilizeLocation = useCallback((nextLocation) => {
+    const previous = lastAcceptedLocationRef.current;
+    const speed = Number.isFinite(nextLocation?.coords?.speed) ? nextLocation.coords.speed : 0;
+    const previousSpeed = Number.isFinite(previous?.coords?.speed) ? previous.coords.speed : 0;
+    const stationaryDrift = previous
+      && speed < STOPPED_SPEED_METERS_PER_SECOND
+      && previousSpeed < STOPPED_SPEED_METERS_PER_SECOND
+      && distanceInMeters(previous.coords, nextLocation.coords) < STATIONARY_DRIFT_METERS;
+    const stabilized = stationaryDrift
+      ? {
+          ...nextLocation,
+          coords: {
+            ...nextLocation.coords,
+            latitude: previous.coords.latitude,
+            longitude: previous.coords.longitude,
+            heading: previous.coords.heading,
+          },
+        }
+      : nextLocation;
+    lastAcceptedLocationRef.current = stabilized;
+    return stabilized;
+  }, []);
 
   const updateAddressIfNeeded = useCallback(async (nextLocation, force = false) => {
     const now = Date.now();
@@ -101,8 +127,9 @@ export function useLiveLocation() {
     const initial = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.BestForNavigation,
     });
-    setLocation(initial);
-    updateAddressIfNeeded(initial, true);
+    const stabilizedInitial = stabilizeLocation(initial);
+    setLocation(stabilizedInitial);
+    updateAddressIfNeeded(stabilizedInitial, true);
 
     const [locationSubscription, headingSubscription] = await Promise.all([
       Location.watchPositionAsync(
@@ -115,8 +142,9 @@ export function useLiveLocation() {
           mayShowUserSettingsDialog: true,
         },
         (nextLocation) => {
-          setLocation(nextLocation);
-          updateAddressIfNeeded(nextLocation);
+          const stabilized = stabilizeLocation(nextLocation);
+          setLocation(stabilized);
+          updateAddressIfNeeded(stabilized);
         },
         () => setError('Location signal interrupted. Trying again…'),
       ),
@@ -130,7 +158,7 @@ export function useLiveLocation() {
       locationSubscription.remove();
       headingSubscription.remove();
     };
-  }, [updateAddressIfNeeded]);
+  }, [stabilizeLocation, updateAddressIfNeeded]);
 
   useEffect(() => {
     let stop = () => {};
