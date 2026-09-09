@@ -22,11 +22,12 @@ function createDemoPartners(location) {
   const latitude = location?.coords?.latitude ?? 33.1212;
   const longitude = location?.coords?.longitude ?? -97.1834;
   const samples = [
-    ['Jordan Martinez', '52', '742', 'pursuit', '#7C3AED', 0.003, 0.002],
+    ['Jordan Martinez', '52', '742', 'pursuit', '#059669', 0.003, 0.002],
     ['Casey Nguyen', '31', '618', 'traffic_stop', '#059669', -0.002, 0.004],
-    ['Taylor Brooks', '18', '405', 'cover_requested', '#DB2777', 0.005, -0.003],
-    ['Morgan Reed', '63', '296', 'available', '#0F766E', -0.004, -0.002],
-    ['Avery Patel', '24', '531', 'available', '#475569', 0.001, -0.005],
+    ['Taylor Brooks', '18', '405', 'cover_requested', '#059669', 0.005, -0.003],
+    ['Morgan Reed', '63', '296', 'available', '#059669', -0.004, -0.002],
+    ['Avery Patel', '24', '531', 'available', '#059669', 0.001, -0.005],
+    ['Cameron Lewis', '39', '684', 'available', '#059669', 0.006, 0.001],
   ];
   return samples.map(([name, unit, callSign, dutyStatus, avatarColor, latitudeOffset, longitudeOffset], index) => ({
     id: `demo-partner-${index + 1}`, name, unit: `Unit ${unit}`, callSign, avatarColor, dutyStatus,

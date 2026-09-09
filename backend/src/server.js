@@ -135,7 +135,7 @@ const server = createServer(async (req, res) => {
       if (!valid) return reply(res, 400, { error: 'Invalid location.' });
       const now = Date.now();
       const previous = await store.getPartner(body.id);
-      const partner = { id: body.id, name: body.name, unit: body.unit, callSign: body.callSign || null, avatarColor: body.avatarColor || '#27AE60', dutyStatus: body.dutyStatus || 'available', occupants: Array.isArray(body.occupants) ? body.occupants.slice(0, 2) : [body.name], occupantCallSigns: Array.isArray(body.occupantCallSigns) ? body.occupantCallSigns.slice(0, 2) : [body.callSign].filter(Boolean), connection: { online: true, quality: 'good', lastSeenAt: now }, location: body.location };
+      const partner = { id: body.id, name: body.name, unit: body.unit, callSign: body.callSign || null, avatarColor: '#059669', dutyStatus: body.dutyStatus || 'available', occupants: Array.isArray(body.occupants) ? body.occupants.slice(0, 2) : [body.name], occupantCallSigns: Array.isArray(body.occupantCallSigns) ? body.occupantCallSigns.slice(0, 2) : [body.callSign].filter(Boolean), connection: { online: true, quality: 'good', lastSeenAt: now }, location: body.location };
       await store.savePartner(partner);
       if (partner.dutyStatus === 'cover_requested' && previous?.dutyStatus !== 'cover_requested') void sendCoverAlerts(partner);
       return reply(res, 202, { accepted: true, serverTimestamp: now });

@@ -20,9 +20,10 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - Device-based test profiles, department creation/join approvals, squad management, and squad-only dashboard visibility
 - Denton County-first road/address lookup using the county's public 911 GIS layer, with native reverse geocoding as fallback
 - Optional nearby-landmark context when the native geocoder returns a distinct named place; it is hidden when the result resembles an address or locality and never replaces the last valid street/block
-- A no-scroll operational dashboard with portrait and landscape layouts, a compact Apple/Google Maps preference, and paged partner controls
+- A no-scroll operational dashboard with portrait and landscape layouts, a compact Apple/Google Maps preference, two-column portrait partner tiles, and slim landscape partner rows
+- Partner rosters sort automatically by pursuit, cover request, traffic stop, then clear; the partner area scrolls independently only when the roster exceeds the available space
 - Full-screen pursuit mode emphasizing the current street, block, heading, locality, and upcoming/nearest cross street; squad partners see a restrained red/blue pursuit pulse
-- Five development-only simulated partners appear when no live partners are available, making portrait paging, the five-unit landscape layout, status styling, map, and detail view testable without adding production data
+- Six development-only simulated partners appear when no live partners are available, making the compact all-unit layouts, status styling, map, and detail view testable without adding production data
 - Denton County/TxDOT highway reference-marker lookup when the device is on a recognized highway
 - Service boundaries ready for a future API/WebSocket implementation
 
