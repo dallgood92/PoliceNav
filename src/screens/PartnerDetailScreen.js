@@ -34,7 +34,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
-  const crew = partnerCrew(partner).map(lastName).join(' / ');
+  const unitCallSigns = crewCallSigns(partner).join(' / ');
 
   const launchNavigation = async (provider = preference) => {
     try {
@@ -123,9 +123,10 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         <Text style={styles.backText}>‹ PARTNERS</Text>
       </Pressable>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
-        <Text style={styles.crewLabel}>UNIT CREW</Text>
-        <Text style={styles.riders}>{crew}</Text>
+        <View style={styles.unitHeader}>
+          <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
+          <Text style={styles.unitCallSigns}>({unitCallSigns})</Text>
+        </View>
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
         <View style={styles.locationSummary}>
@@ -134,11 +135,11 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           <Text style={styles.partnerStreet} numberOfLines={1}>
             {locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}
           </Text>
-          <Text style={styles.crossStreet} numberOfLines={1}>
-            {locationDetails.crossStreet?.name
-              ? `NEAREST CROSS · ${locationDetails.crossStreet.name.toUpperCase()} · ${Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT`
-              : 'NEAREST CROSS STREET · NOT AVAILABLE'}
-          </Text>
+          {locationDetails.crossStreet?.name ? (
+            <Text style={styles.crossStreet} numberOfLines={1}>
+              NEAREST CROSS · <Text style={styles.crossStreetName}>{locationDetails.crossStreet.name.toUpperCase()}</Text> · {Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT
+            </Text>
+          ) : <Text style={styles.crossStreet}>NEAREST CROSS STREET · NOT AVAILABLE</Text>}
           <Text style={styles.travelDirection}>{travelDirection.label}</Text>
         </View>
         <View style={[styles.mapFrame, isLandscape && styles.mapFrameLandscape]}>
@@ -202,19 +203,20 @@ const styles = StyleSheet.create({
   backButton: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 18 },
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 },
+  unitHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 8 },
   unit: { color: colors.accent, fontSize: 25, fontWeight: '900', letterSpacing: 0.8 },
-  crewLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginTop: 7 },
-  riders: { color: colors.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginTop: 3 },
+  unitCallSigns: { color: colors.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
-  locationSummary: { alignItems: 'center', width: '100%', marginTop: 17 },
-  locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
-  blockBadge: { backgroundColor: colors.accent, borderColor: colors.accent, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 5 },
+  locationSummary: { alignItems: 'center', width: '100%', marginTop: 24 },
+  locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 12 },
+  blockBadge: { backgroundColor: colors.accent, borderColor: colors.accent, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 12 },
   partnerBlock: { color: colors.background, fontSize: 18, fontWeight: '900', letterSpacing: 0.7 },
-  partnerStreet: { color: colors.text, fontSize: 19, fontWeight: '900', marginTop: 1 },
-  crossStreet: { color: colors.accent, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, marginTop: 3 },
-  travelDirection: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1, marginTop: 8 },
+  partnerStreet: { color: colors.text, fontSize: 19, fontWeight: '900' },
+  crossStreet: { color: colors.muted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7, marginTop: 10 },
+  crossStreetName: { color: colors.accent },
+  travelDirection: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1, marginTop: 14 },
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
   goodDot: { backgroundColor: colors.success },
   weakDot: { backgroundColor: colors.warning },
