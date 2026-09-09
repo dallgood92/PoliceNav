@@ -95,7 +95,6 @@ export default function App() {
             partners={visiblePartners}
             duty={duty.assignment}
             userLocation={live.location}
-            onUpdatePartner={partnerState.updatePartner}
             onBack={() => setSelectedPartnerId(null)}
           />
         ) : (

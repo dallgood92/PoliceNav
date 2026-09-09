@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useMapPreference } from '../hooks/useMapPreference';
 import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
-import { availableMapChoices, mapLabel, mapOptions, openNavigationTo } from '../services/navigationService';
+import { availableMapChoices, openNavigationTo } from '../services/navigationService';
 import { colors } from '../theme/colors';
 import { getPartnerPresence } from '../utils/presence';
 import { deriveHundredBlock, formatStreet } from '../utils/address';
@@ -12,29 +12,20 @@ import { lastName } from '../utils/name';
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
 const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
 
-export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onUpdatePartner, onBack }) {
+export default function PartnerDetailScreen({ partner, partners, duty, userLocation, onBack }) {
   const mapRef = useRef(null);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const presence = getPartnerPresence(partner);
-  const { preference, setPreference } = useMapPreference();
+  const { preference } = useMapPreference();
   const locationDetails = usePartnerLocationDetails(partner.location);
   const block = deriveHundredBlock(locationDetails.address);
-  const [editingUnit, setEditingUnit] = useState(false);
   const currentUnit = `Unit ${duty?.unitNumber || ''}`;
   const currentUnitCallSigns = [duty?.callSign, duty?.secondOfficerCallSign].filter(Boolean).join('/');
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
-  const availableRiders = [
-    { id: 'none', name: 'None — one officer', value: null, callSign: null },
-    ...(partners || []).filter((item) => item.id !== partner.id).map((item) => ({ id: item.id, name: item.name, value: item.name, callSign: item.callSign || null })),
-  ];
-  const secondRider = partner.occupants?.find((name) => name !== partner.name) || null;
-  const crew = [
-    `${lastName(partner.name).toUpperCase()} (${partner.callSign || '—'})`,
-    secondRider ? `${lastName(secondRider).toUpperCase()} (${partner.occupantCallSigns?.[1] || '—'})` : null,
-  ].filter(Boolean).join(' / ');
+  const crew = partnerCrew(partner).map((name) => lastName(name).toUpperCase()).join(' / ');
 
   const launchNavigation = async (provider = preference) => {
     try {
@@ -123,26 +114,13 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         <Text style={styles.backText}>‹ PARTNERS</Text>
       </Pressable>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.badge, { backgroundColor: partner.avatarColor || '#2563EB' }]}>
-          {crewCallSigns(partner).map((callSign, index) => <View key={`detail-${callSign}`} style={styles.badgeLine}>{index ? <View style={styles.badgeDivider} /> : null}<Text style={styles.badgeText}>{callSign}</Text></View>)}
-        </View>
-        <Text style={styles.name}>{lastName(partner.name)} {partner.callSign ? `(${partner.callSign})` : ''}</Text>
-        <View style={styles.unitRow}><Text style={styles.unit}>{partner.unit}</Text><Pressable onPress={() => setEditingUnit((value) => !value)}><Text style={styles.editUnit}>{editingUnit ? 'DONE' : 'EDIT UNIT'}</Text></Pressable></View>
+        <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
         <Text style={styles.crewLabel}>UNIT CREW</Text>
         <Text style={styles.riders}>{crew}</Text>
-        {editingUnit ? (
-          <View style={styles.unitEditor}>
-            <View style={styles.unitInputs}>
-              <View style={styles.unitInputGroup}><Text style={styles.unitInputLabel}>UNIT NUMBER</Text><TextInput value={partner.unit.replace(/^Unit\s*/i, '')} onChangeText={(value) => onUpdatePartner({ ...partner, unit: `Unit ${value}` })} placeholder="47" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.unitInput} /></View>
-              <View style={styles.unitInputGroup}><Text style={styles.unitInputLabel}>CALL SIGN</Text><TextInput value={partner.callSign || ''} onChangeText={(callSign) => onUpdatePartner({ ...partner, callSign, occupantCallSigns: [callSign, ...(partner.occupantCallSigns || []).slice(1)] })} placeholder="Call sign" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.unitInput} /></View>
-            </View>
-            <Text style={styles.riderLabel}>SECOND OFFICER</Text>
-            <View style={styles.riderChoices}>{availableRiders.map((rider) => <Pressable key={rider.id} onPress={() => onUpdatePartner({ ...partner, occupants: [partner.name, rider.value].filter(Boolean), occupantCallSigns: [partner.callSign, rider.callSign].filter(Boolean) })} style={[styles.riderChoice, secondRider === rider.value && styles.riderChoiceActive]}><Text style={styles.riderChoiceText}>{rider.value ? `${lastName(rider.name)}${rider.callSign ? ` (${rider.callSign})` : ''}` : rider.name}</Text></Pressable>)}</View>
-          </View>
-        ) : null}
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
         <View style={styles.locationSummary}>
+          <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
           {block ? <View style={styles.blockBadge}><Text style={styles.partnerBlock}>{block}</Text></View> : null}
           <Text style={styles.partnerStreet} numberOfLines={1}>
             {locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}
@@ -152,10 +130,6 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
               ? `NEAREST CROSS · ${locationDetails.crossStreet.name.toUpperCase()} · ${Math.round(locationDetails.crossStreet.distanceMeters * 3.28084)} FT`
               : 'NEAREST CROSS STREET · NOT AVAILABLE'}
           </Text>
-        </View>
-        <View style={styles.statusPill}>
-          <View style={[styles.presenceDot, styles[`${presence.quality}Dot`]]} />
-          <Text style={[styles.status, styles[`${presence.quality}Text`]]}>{presence.label.toUpperCase()}</Text>
         </View>
         <View style={[styles.mapFrame, isLandscape && styles.mapFrameLandscape]}>
           <MapView
@@ -201,23 +175,6 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             <Text style={styles.liveMapText}>LIVE PARTNER MAP</Text>
           </View>
         </View>
-        <Text style={styles.mapLabel}>PREFERRED MAP</Text>
-        <View style={styles.mapOptions}>
-          {mapOptions.map((option) => (
-            <Pressable
-              key={option.value}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: preference === option.value }}
-              onPress={() => setPreference(option.value)}
-              style={[styles.mapOption, preference === option.value && styles.mapOptionSelected]}
-            >
-              <Text style={[styles.mapOptionText, preference === option.value && styles.mapOptionTextSelected]}>
-                {option.value === 'automatic' ? 'AUTO' : option.value === 'ask' ? 'ASK' : option.value.toUpperCase()}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.mapChoice}>{mapLabel(preference)}</Text>
         <Pressable
           accessibilityRole="button"
           onPress={confirmAndNavigate}
@@ -225,7 +182,6 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
         >
           <Text style={styles.navigateText}>OPEN DIRECTIONS</Text>
         </Pressable>
-        <Text style={styles.note}>The marker updates from the live server. External directions use the latest position available when opened.</Text>
       </ScrollView>
     </View>
   );
@@ -235,39 +191,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   backButton: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 18 },
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
-  content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 24 },
-  badge: { width: 66, minHeight: 68, borderRadius: 13, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 7 },
-  badgeLine: { alignItems: 'center' }, badgeDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 4 },
-  badgeText: { color: colors.text, fontSize: 17, lineHeight: 19, fontWeight: '900', letterSpacing: 0.8 },
-  name: { color: colors.text, fontSize: 29, fontWeight: '900', marginTop: 8 },
-  unit: { color: colors.muted, fontSize: 19, marginTop: 4 },
-  unitRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, editUnit: { color: colors.accent, fontSize: 11, fontWeight: '900', marginTop: 5 },
-  crewLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginTop: 8 },
-  riders: { color: colors.text, fontSize: 13, fontWeight: '900', marginTop: 3 },
-  unitEditor: { width: '100%', backgroundColor: colors.panel, borderRadius: 10, padding: 12, marginTop: 10 }, unitInputs: { flexDirection: 'row', gap: 8 },
-  unitInputGroup: { flex: 1 }, unitInputLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', marginBottom: 5, letterSpacing: 0.7 },
-  unitInput: { minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text, paddingHorizontal: 12, backgroundColor: colors.background },
-  riderLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', marginTop: 12, marginBottom: 4 }, riderChoices: { gap: 5 },
-  riderChoice: { padding: 9, backgroundColor: colors.background, borderRadius: 7 }, riderChoiceActive: { borderWidth: 1, borderColor: colors.accent }, riderChoiceText: { color: colors.text, fontWeight: '700' },
+  content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 },
+  unit: { color: colors.accent, fontSize: 25, fontWeight: '900', letterSpacing: 0.8 },
+  crewLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginTop: 7 },
+  riders: { color: colors.text, fontSize: 20, fontWeight: '900', letterSpacing: 0.5, marginTop: 3 },
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
-  locationSummary: { alignItems: 'center', width: '100%', marginTop: 11 },
+  locationSummary: { alignItems: 'center', width: '100%', marginTop: 17 },
+  locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
   blockBadge: { backgroundColor: '#176B3A', borderColor: colors.success, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 5 },
   partnerBlock: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 0.7 },
   partnerStreet: { color: colors.text, fontSize: 19, fontWeight: '900', marginTop: 1 },
   crossStreet: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.7, marginTop: 3 },
-  statusPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.panel, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, marginTop: 10 },
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
   goodDot: { backgroundColor: colors.success },
   weakDot: { backgroundColor: colors.warning },
   offlineDot: { backgroundColor: colors.muted },
-  status: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
-  goodText: { color: colors.success },
-  weakText: { color: colors.warning },
-  offlineText: { color: colors.muted },
-  mapFrame: { width: '100%', height: 200, borderRadius: 12, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: colors.border },
-  mapFrameLandscape: { height: 260, maxWidth: 760 },
+  mapFrame: { width: '100%', height: 370, borderRadius: 12, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: colors.border },
+  mapFrameLandscape: { height: 430, maxWidth: 760 },
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
   partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
@@ -278,15 +220,7 @@ const styles = StyleSheet.create({
   markerPointer: { width: 0, height: 0, borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
-  mapLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginTop: 14 },
-  mapOptions: { flexDirection: 'row', width: '100%', marginTop: 9, gap: 7 },
-  mapOption: { flex: 1, minHeight: 42, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.panel, alignItems: 'center', justifyContent: 'center' },
-  mapOptionSelected: { borderColor: colors.accent, backgroundColor: colors.panelRaised },
-  mapOptionText: { color: colors.muted, fontSize: 11, fontWeight: '900' },
-  mapOptionTextSelected: { color: colors.accent },
-  mapChoice: { color: colors.muted, fontSize: 12, marginTop: 7 },
-  navigateButton: { width: '100%', minHeight: 58, backgroundColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 22 },
+  navigateButton: { width: '100%', minHeight: 58, backgroundColor: colors.accent, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   pressed: { opacity: 0.8 },
   navigateText: { color: colors.background, fontSize: 17, fontWeight: '900', letterSpacing: 0.8 },
-  note: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 18 },
 });
