@@ -62,7 +62,7 @@ async function notifyWatches(partner) {
 }
 
 async function sendCoverAlerts(partner) {
-  const tokens = await store.listPushTokensExcept(partner.id);
+  const tokens = await store.listPartnerPushTokens(partner.id);
   if (!tokens.length) return;
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

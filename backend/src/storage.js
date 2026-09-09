@@ -240,8 +240,17 @@ export async function getPushToken(deviceId) {
   return result.rows[0]?.push_token || null;
 }
 
-export async function listPushTokensExcept(deviceId) {
-  const result = await database.query('SELECT push_token FROM device_push_tokens WHERE device_id <> $1', [deviceId]);
+export async function listPartnerPushTokens(deviceId) {
+  const result = await database.query(
+    `SELECT DISTINCT tokens.push_token
+     FROM users sender
+     JOIN squad_members sender_membership ON sender_membership.user_id = sender.id
+     JOIN squad_members partner_membership ON partner_membership.squad_id = sender_membership.squad_id
+     JOIN users partner ON partner.id = partner_membership.user_id
+     JOIN device_push_tokens tokens ON tokens.device_id = partner.device_id
+     WHERE sender.device_id = $1 AND partner.device_id <> $1`,
+    [deviceId],
+  );
   return result.rows.map((row) => row.push_token);
 }
 
