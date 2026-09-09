@@ -25,7 +25,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
-  const crew = partnerCrew(partner).map((name) => lastName(name).toUpperCase()).join(' / ');
+  const crew = partnerCrew(partner).map(lastName).join(' / ');
 
   const launchNavigation = async (provider = preference) => {
     try {
@@ -163,9 +163,9 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
               <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
                 <View style={styles.markerStack}>
                   <View style={[styles.partnerMarker, { backgroundColor: mapPartner.avatarColor || '#2563EB' }, mapPartner.id === partner.id && styles.selectedMarker]}>
-                    {crewCallSigns(mapPartner).map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={styles.markerDivider} /> : null}<Text style={styles.markerCallSign}>{callSign}</Text></View>)}
+                    {crewCallSigns(mapPartner).map((callSign, index) => <View key={`marker-${callSign}`} style={styles.markerLine}>{index ? <View style={[styles.markerDivider, mapPartner.id === partner.id && styles.selectedMarkerDivider]} /> : null}<Text style={[styles.markerCallSign, mapPartner.id === partner.id && styles.selectedMarkerText]}>{callSign}</Text></View>)}
                   </View>
-                  <View style={[styles.markerPointer, { borderTopColor: mapPartner.avatarColor || colors.accent }]} />
+                  <View style={[styles.markerPointer, { borderTopColor: mapPartner.id === partner.id ? colors.accent : mapPartner.avatarColor || colors.accent }]} />
                 </View>
               </Marker>
             ))}
@@ -200,8 +200,8 @@ const styles = StyleSheet.create({
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
   locationSummary: { alignItems: 'center', width: '100%', marginTop: 17 },
   locationLabel: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
-  blockBadge: { backgroundColor: '#176B3A', borderColor: colors.success, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 5 },
-  partnerBlock: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 0.7 },
+  blockBadge: { backgroundColor: colors.accent, borderColor: colors.accent, borderWidth: 1, borderRadius: 9, paddingHorizontal: 15, paddingVertical: 7, marginBottom: 5 },
+  partnerBlock: { color: colors.background, fontSize: 18, fontWeight: '900', letterSpacing: 0.7 },
   partnerStreet: { color: colors.text, fontSize: 19, fontWeight: '900', marginTop: 1 },
   crossStreet: { color: colors.muted, fontSize: 11, fontWeight: '800', letterSpacing: 0.7, marginTop: 3 },
   presenceDot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
@@ -213,7 +213,9 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
   partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
-  selectedMarker: { borderWidth: 4 },
+  selectedMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 4 },
+  selectedMarkerText: { color: colors.background },
+  selectedMarkerDivider: { backgroundColor: 'rgba(11,17,24,0.55)' },
   markerLine: { alignItems: 'center' }, markerDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 2 },
   markerCallSign: { color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900' },
   currentUnitMarker: { borderWidth: 4 },
