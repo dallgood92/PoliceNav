@@ -141,6 +141,8 @@ const server = createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/locations') {
       const valid = typeof body?.id === 'string' && typeof body?.name === 'string' && typeof body?.unit === 'string' && validLocation(body?.location) && Number.isFinite(body.location.timestamp);
       if (!valid) return reply(res, 400, { error: 'Invalid location.' });
+      const registeredUser = await store.getActiveUserByDeviceId(body.id);
+      if (!registeredUser) return reply(res, 403, { error: 'Officer registration is required.' });
       const now = Date.now();
       const previous = await store.getPartner(body.id);
       const partner = { id: body.id, name: body.name, unit: body.unit, callSign: body.callSign || null, avatarColor: '#059669', dutyStatus: body.dutyStatus || 'available', occupants: Array.isArray(body.occupants) ? body.occupants.slice(0, 2) : [body.name], occupantCallSigns: Array.isArray(body.occupantCallSigns) ? body.occupantCallSigns.slice(0, 2) : [body.callSign].filter(Boolean), connection: { online: true, quality: 'good', lastSeenAt: now }, location: body.location };

@@ -161,6 +161,14 @@ export async function getUser(id, client = database) {
   return userFromRow(result.rows[0]);
 }
 
+export async function getActiveUserByDeviceId(deviceId) {
+  const result = await database.query(
+    'SELECT * FROM users WHERE device_id = $1 AND department_id IS NOT NULL',
+    [deviceId],
+  );
+  return userFromRow(result.rows[0]);
+}
+
 export async function listDepartments() {
   const result = await database.query(
     `SELECT d.*, COUNT(u.id)::int AS member_count
