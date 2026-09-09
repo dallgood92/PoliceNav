@@ -192,6 +192,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           </Text>
           {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
           <Text style={styles.locality}>{formatLocality(locationDetails.address).toUpperCase()}</Text>
+          <View style={styles.locationDivider} />
           {locationDetails.crossStreet?.name ? (
             <View style={styles.crossStreetGroup}>
               <Text style={styles.crossStreetLabel}>CROSS STREET</Text>
@@ -272,7 +273,8 @@ const styles = StyleSheet.create({
   partnerStreet: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
   partnerBlock: { color: colors.accent, fontSize: 20, fontWeight: '900', letterSpacing: 0.8, marginTop: 5 },
   locality: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, marginTop: 6 },
-  crossStreetGroup: { alignItems: 'center', marginTop: 15 },
+  locationDivider: { width: '42%', height: 1, backgroundColor: colors.border, marginTop: 15 },
+  crossStreetGroup: { alignItems: 'center', marginTop: 13 },
   crossStreetLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
   crossStreetName: { color: colors.accent, fontSize: 17, fontWeight: '900', letterSpacing: 0.5, marginTop: 3 },
   crossStreetDistance: { color: colors.muted, fontSize: 12 },
