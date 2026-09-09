@@ -17,11 +17,12 @@ export function useOfficerSession() {
       .then(async (saved) => {
         if (!saved) return;
         const profile = JSON.parse(saved);
+        if (!profile?.id || !profile?.name) return;
+        const migratedProfile = { ...profile, profileVersion: PROFILE_VERSION };
         if (profile.profileVersion !== PROFILE_VERSION) {
-          await AsyncStorage.removeItem(SESSION_KEY);
-          return;
+          await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(migratedProfile));
         }
-        setOfficer(profile);
+        setOfficer(migratedProfile);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
