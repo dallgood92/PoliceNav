@@ -12,6 +12,22 @@ import { lastName } from '../utils/name';
 
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
 const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#17212B' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#AAB6C2' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#101820' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#354555' }] },
+  { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#18242D' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1E2D36' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#8FA0AE' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2B3947' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#111A22' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#D7DEE5' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#495867' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#24323D' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#091B2C' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#718596' }] },
+];
 const locationAge = (timestamp) => {
   if (!Number.isFinite(timestamp)) return 'UPDATE TIME UNAVAILABLE';
   const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
@@ -159,6 +175,8 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           <MapView
             ref={mapRef}
             style={styles.map}
+            userInterfaceStyle="dark"
+            customMapStyle={DARK_MAP_STYLE}
             onMapReady={frameBothLocations}
             initialRegion={{
               latitude: partner.location.latitude,
@@ -243,12 +261,12 @@ const styles = StyleSheet.create({
   mapFrameLandscape: { height: 430, maxWidth: 760 },
   map: { flex: 1 },
   markerStack: { alignItems: 'center' },
-  partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
+  partnerMarker: { minWidth: 50, minHeight: 46, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4 },
   selectedMarker: { backgroundColor: colors.accent, borderColor: '#FFFFFF', borderWidth: 4 },
   selectedMarkerText: { color: colors.background },
   selectedMarkerDivider: { backgroundColor: 'rgba(11,17,24,0.55)' },
-  markerLine: { alignItems: 'center' }, markerDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 2 },
-  markerCallSign: { color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900' },
+  markerLine: { width: '100%', alignItems: 'center' }, markerDivider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.7)', marginVertical: 2 },
+  markerCallSign: { minWidth: 34, color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
   currentUnitMarker: { borderWidth: 4 },
   markerPointer: { width: 0, height: 0, borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
