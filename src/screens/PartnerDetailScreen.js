@@ -14,6 +14,12 @@ import { lastName } from '../utils/name';
 
 const partnerCrew = (item) => (item.occupants?.length ? item.occupants : [item.name]);
 const crewCallSigns = (item) => partnerCrew(item).map((name, index) => item.occupantCallSigns?.[index] || (index === 0 ? item.callSign : null) || '—');
+const ARGYLE_OVERVIEW = {
+  latitude: 33.1212,
+  longitude: -97.1834,
+  latitudeDelta: 0.105,
+  longitudeDelta: 0.12,
+};
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#17212B' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#AAB6C2' }] },
@@ -68,11 +74,11 @@ function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
   const callSignColor = isPursuit ? pursuitLeft : staticColor;
   const label = callSigns.length > 1 ? `${callSigns[0]} +${callSigns.length - 1}` : callSigns[0];
   return (
-    <View style={[styles.partnerCarStack, mode === 'dot' && styles.partnerCarStackDot]}>
-      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.partnerCallSignText, mode === 'dot' && styles.partnerCallSignTextDot, { color: callSignColor }]}>{label}</Animated.Text>
+    <View style={[styles.partnerCarStack, mode === 'compact' && styles.partnerCarStackCompact, mode === 'dot' && styles.partnerCarStackDot]}>
+      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.partnerCallSignText, mode === 'compact' && styles.partnerCallSignTextCompact, mode === 'dot' && styles.partnerCallSignTextDot, { color: callSignColor }]}>{label}</Animated.Text>
       <View style={styles.partnerCarImageWrap}>
-        <Image source={require('../../assets/partner-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.partnerCarImage, mode === 'dot' && styles.partnerCarImageDot]} />
-        <View style={[styles.partnerLightBar, mode === 'dot' && styles.partnerLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: pursuitLeft }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: pursuitRight }]} /></> : null}</View>
+        <Image source={require('../../assets/partner-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.partnerCarImage, mode === 'compact' && styles.partnerCarImageCompact, mode === 'dot' && styles.partnerCarImageDot]} />
+        <View style={[styles.partnerLightBar, mode === 'compact' && styles.partnerLightBarCompact, mode === 'dot' && styles.partnerLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: pursuitLeft }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: pursuitRight }]} /></> : null}</View>
       </View>
     </View>
   );
@@ -96,8 +102,8 @@ function CurrentUnitMarker({ dutyStatus, heading, mode }) {
   const rightLight = lightPulse.interpolate({ inputRange: [0, 1], outputRange: ['#EF233C', '#3478F6'] });
   return (
     <View style={[styles.currentUnitMarker, { transform: [{ rotate: rotation }] }]}>
-      <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.currentUnitCar, mode === 'dot' && styles.currentUnitCarDot]} />
-      <View style={[styles.currentLightBar, mode === 'dot' && styles.currentLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: leftLight }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: rightLight }]} /></> : null}</View>
+      <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.currentUnitCar, mode === 'compact' && styles.currentUnitCarCompact, mode === 'dot' && styles.currentUnitCarDot]} />
+      <View style={[styles.currentLightBar, mode === 'compact' && styles.currentLightBarCompact, mode === 'dot' && styles.currentLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: leftLight }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: rightLight }]} /></> : null}</View>
     </View>
   );
 }
@@ -238,7 +244,13 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       }, 400);
       return;
     }
-    const nearby = distanceInMeters(userCoords, selectedPartnerCoords) < 805;
+    const distance = distanceInMeters(userCoords, selectedPartnerCoords);
+    const nearby = distance < 805;
+    if (!nearby) {
+      setMarkerMode('compact');
+      mapRef.current.animateToRegion(ARGYLE_OVERVIEW, 400);
+      return;
+    }
     const edgePadding = nearby
       ? { top: 58, right: 52, bottom: 58, left: 52 }
       : { top: 105, right: 90, bottom: 105, left: 90 };
@@ -331,13 +343,13 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 }}
                 title={currentUnit}
                 description="Your unit's live GPS location"
-                anchor={{ x: 0.5, y: 0.5 }}
+              anchor={{ x: 0.5, y: 0.5 }}
               >
                 <CurrentUnitMarker dutyStatus={duty?.status} heading={autoFrame ? 0 : userLocation.coords.heading} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
-              <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
+              <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: 0.5 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
                 <PartnerCarMarker callSigns={crewCallSigns(mapPartner)} dutyStatus={mapPartner.dutyStatus} mode={markerMode} />
               </Marker>
             ))}
@@ -426,20 +438,26 @@ const styles = StyleSheet.create({
   markerCallSign: { minWidth: 29, color: '#FFFFFF', fontSize: 10, lineHeight: 12, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
   markerPointer: { width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', marginTop: -2 },
   partnerCarStack: { alignItems: 'center', width: 55 },
+  partnerCarStackCompact: { width: 31 },
   partnerCarStackDot: { width: 37 },
   partnerCallSignText: { maxWidth: 55, color: '#64748B', fontSize: 12, lineHeight: 14, fontWeight: '900', textAlign: 'center', marginBottom: 1, textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  partnerCallSignTextCompact: { fontSize: 7, lineHeight: 8 },
   partnerCallSignTextDot: { fontSize: 8, lineHeight: 9 },
   partnerCarImageWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
   partnerCarImage: { width: 34, height: 51 },
+  partnerCarImageCompact: { width: 18, height: 27 },
   partnerCarImageDot: { width: 23, height: 35 },
   partnerLightBar: { position: 'absolute', top: 25, width: 16, height: 4, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820' },
+  partnerLightBarCompact: { top: 13, width: 9, height: 2 },
   partnerLightBarDot: { top: 17, width: 11, height: 3 },
   partnerBlueLight: { flex: 1, backgroundColor: '#3478F6' },
   partnerRedLight: { flex: 1, backgroundColor: '#EF233C' },
   currentUnitMarker: { alignItems: 'center', justifyContent: 'center' },
   currentUnitCar: { width: 36, height: 54 },
+  currentUnitCarCompact: { width: 19, height: 29 },
   currentUnitCarDot: { width: 22, height: 33 },
   currentLightBar: { position: 'absolute', top: 27, width: 17, height: 4, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820' },
+  currentLightBarCompact: { top: 14, width: 9, height: 2 },
   currentLightBarDot: { top: 16, width: 10, height: 3 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
