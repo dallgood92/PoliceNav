@@ -77,6 +77,20 @@ export async function upsertUser(input) {
   return userFromRow(result.rows[0]);
 }
 
+export async function findUserIdentityConflict({ deviceId, name, callSign }) {
+  const result = await database.query(
+    `SELECT id,
+            CASE WHEN LOWER(name) = LOWER($2) THEN 'name' ELSE 'callSign' END AS conflict_field
+     FROM users
+     WHERE device_id <> $1
+       AND (LOWER(name) = LOWER($2) OR LOWER(call_sign) = LOWER($3))
+     ORDER BY CASE WHEN LOWER(call_sign) = LOWER($3) THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [deviceId, name, callSign],
+  );
+  return result.rows[0]?.conflict_field || null;
+}
+
 export async function getUser(id, client = database) {
   const result = await client.query('SELECT * FROM users WHERE id = $1', [id]);
   return userFromRow(result.rows[0]);

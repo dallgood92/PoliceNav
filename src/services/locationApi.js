@@ -80,7 +80,10 @@ export async function apiRequest(path, options = {}) {
       ...options.headers,
     },
   });
-  if (!response.ok) throw new Error(`Location server returned ${response.status}.`);
+  if (!response.ok) {
+    const result = await response.json().catch(() => null);
+    throw new Error(result?.error || `Location server returned ${response.status}.`);
+  }
   return response.json();
 }
 

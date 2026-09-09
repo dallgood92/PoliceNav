@@ -7,7 +7,7 @@ export default function SignInScreen({ session }) {
   const [lastName, setLastName] = useState('');
   const [callSign, setCallSign] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
-  const complete = [firstName, lastName, callSign, unitNumber].every((value) => value.trim());
+  const complete = [firstName, lastName, callSign].every((value) => value.trim());
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
@@ -19,7 +19,7 @@ export default function SignInScreen({ session }) {
         <TextInput autoCapitalize="words" autoComplete="family-name" onChangeText={setLastName} placeholder="Last name" placeholderTextColor={colors.muted} style={[styles.input, styles.halfInput]} value={lastName} />
       </View>
       <TextInput autoCapitalize="characters" onChangeText={setCallSign} placeholder="Call sign" placeholderTextColor={colors.muted} style={styles.input} value={callSign} />
-      <TextInput onChangeText={setUnitNumber} placeholder="Unit number" placeholderTextColor={colors.muted} style={styles.input} value={unitNumber} />
+      <TextInput onChangeText={setUnitNumber} placeholder="Unit number (optional)" placeholderTextColor={colors.muted} style={styles.input} value={unitNumber} />
       <Pressable disabled={!complete || session.loading} onPress={() => session.register({ firstName, lastName, callSign, unitNumber })} style={[styles.button, (!complete || session.loading) && styles.buttonDisabled]}>
         {session.loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.buttonText}>SAVE AND CONTINUE</Text>}
       </Pressable>

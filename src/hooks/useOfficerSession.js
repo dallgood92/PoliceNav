@@ -48,8 +48,8 @@ export function useOfficerSession() {
       await saveDutyAssignment({ ...duty, callSign: profile.callSign, unitNumber: profile.unitNumber });
       setOfficer(savedOfficer);
       await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(savedOfficer));
-    } catch {
-      setError('Your profile could not be saved. Check the server connection and try again.');
+    } catch (registrationError) {
+      setError(registrationError?.message || 'Your profile could not be saved. Check the server connection and try again.');
     } finally {
       setLoading(false);
     }

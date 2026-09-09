@@ -3,7 +3,6 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import {
   approveDepartmentRequest,
   assignSquadMember,
-  createDepartment,
   createSquad,
   listDepartments,
   requestDepartmentAccess,
@@ -12,7 +11,6 @@ import { colors } from '../theme/colors';
 
 export default function DepartmentScreen({ officer, workspace, refresh, onDone, onSignOut }) {
   const [departments, setDepartments] = useState([]);
-  const [departmentName, setDepartmentName] = useState('');
   const [squadName, setSquadName] = useState('');
   const [message, setMessage] = useState(null);
 
@@ -28,6 +26,7 @@ export default function DepartmentScreen({ officer, workspace, refresh, onDone, 
   };
 
   const admin = workspace?.admin;
+  const argyleDepartment = departments.find((department) => /argyle/i.test(department.name));
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.topRow}>
@@ -35,27 +34,20 @@ export default function DepartmentScreen({ officer, workspace, refresh, onDone, 
         <Pressable onPress={onSignOut}><Text style={styles.signOut}>SIGN OUT</Text></Pressable>
       </View>
       <Text style={styles.eyebrow}>SIGNED IN AS {officer.name.toUpperCase()}</Text>
-      <Text style={styles.title}>{workspace?.department?.name || 'Join a department'}</Text>
+      <Text style={styles.title}>{workspace?.department?.name || 'Join Argyle Police Department'}</Text>
 
       {!workspace?.department ? (
         <>
           {workspace?.pendingRequest ? <Text style={styles.pending}>REQUEST PENDING APPROVAL</Text> : null}
-          <Text style={styles.section}>AVAILABLE DEPARTMENTS</Text>
-          {departments.map((department) => (
-            <View key={department.id} style={styles.row}>
-              <View style={styles.grow}><Text style={styles.rowTitle}>{department.name}</Text><Text style={styles.muted}>{department.memberCount} members</Text></View>
-              <Pressable disabled={Boolean(workspace?.pendingRequest)} onPress={() => run(() => requestDepartmentAccess(department.id, officer.id), 'Request sent to the department admin.')} style={styles.smallButton}>
-                <Text style={styles.smallButtonText}>REQUEST</Text>
+          <Text style={styles.section}>DEPARTMENT ACCESS</Text>
+          {argyleDepartment ? (
+            <View style={styles.row}>
+              <View style={styles.grow}><Text style={styles.rowTitle}>{argyleDepartment.name}</Text><Text style={styles.muted}>{argyleDepartment.memberCount} members</Text></View>
+              <Pressable disabled={Boolean(workspace?.pendingRequest)} onPress={() => run(() => requestDepartmentAccess(argyleDepartment.id, officer.id), 'Request sent to the Argyle PD administrator.')} style={styles.smallButton}>
+                <Text style={styles.smallButtonText}>{workspace?.pendingRequest ? 'PENDING' : 'JOIN'}</Text>
               </Pressable>
             </View>
-          ))}
-          {workspace?.canManage ? (
-            <>
-              <Text style={styles.section}>CREATE A DEPARTMENT</Text>
-              <TextInput value={departmentName} onChangeText={setDepartmentName} placeholder="Department name" placeholderTextColor={colors.muted} style={styles.input} />
-              <Pressable onPress={() => run(() => createDepartment(departmentName, officer.id), 'Department created.')} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE DEPARTMENT</Text></Pressable>
-            </>
-          ) : null}
+          ) : <Text style={styles.muted}>Argyle Police Department is temporarily unavailable.</Text>}
         </>
       ) : (
         <>
