@@ -26,7 +26,7 @@ function createDemoPartner(location) {
     name: 'Jordan Martinez',
     unit: 'Unit 52',
     callSign: '742',
-    avatarColor: '#2563EB',
+    avatarColor: '#7C3AED',
     dutyStatus: 'pursuit',
     occupants: ['Jordan Martinez'],
     occupantCallSigns: ['742'],

@@ -37,7 +37,7 @@ export default function PartnerRow({ partner, userLocation, onPress, compact = f
       onPress={() => onPress(partner)}
       style={({ pressed }) => [styles.row, compact && styles.compactRow, alertStyle, isPursuit && styles.pursuitRow, pressed && styles.pressed]}
     >
-      <View style={[styles.badge, { backgroundColor: partner.avatarColor || '#2563EB' }, highlighted && styles.alertBadge]}>
+      <View style={[styles.badge, { backgroundColor: partner.avatarColor || '#059669' }, highlighted && styles.alertBadge]}>
         {crew.map((member, index) => (
           <View key={`badge-${member.callSign}`} style={styles.badgeLine}>
             {index ? <View style={styles.badgeDivider} /> : null}

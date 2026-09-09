@@ -245,12 +245,12 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 description="Your unit's live GPS location"
                 anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }}
               >
-                <UnitMapMarker callSigns={currentUnitCallSignList.length ? currentUnitCallSignList : ['—']} color={duty?.avatarColor || '#2563EB'} dutyStatus={duty?.status} mode={markerMode} />
+                <UnitMapMarker callSigns={currentUnitCallSignList.length ? currentUnitCallSignList : ['—']} color={duty?.avatarColor || '#059669'} dutyStatus={duty?.status} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
               <Marker key={mapPartner.id} coordinate={mapPartner.location} title={`${mapPartner.unit} ${lastName(mapPartner.name)}`} description={mapPartner.id === partner.id ? 'Selected partner' : 'Squad partner'} anchor={{ x: 0.5, y: markerMode === 'dot' ? 0.5 : 1 }} zIndex={mapPartner.id === partner.id ? 10 : 1}>
-                <UnitMapMarker callSigns={crewCallSigns(mapPartner)} color={mapPartner.avatarColor || '#2563EB'} dutyStatus={mapPartner.dutyStatus} selected={mapPartner.id === partner.id} mode={markerMode} />
+                <UnitMapMarker callSigns={crewCallSigns(mapPartner)} color={mapPartner.avatarColor || '#059669'} dutyStatus={mapPartner.dutyStatus} selected={mapPartner.id === partner.id} mode={markerMode} />
               </Marker>
             ))}
           </MapView>
