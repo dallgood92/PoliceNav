@@ -34,7 +34,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => item.unit !== currentUnit)
     : (partners || []);
-  const unitCallSigns = crewCallSigns(partner).join(' / ');
+  const unitCallSigns = crewCallSigns(partner).join(' | ');
 
   const launchNavigation = async (provider = preference) => {
     try {
@@ -125,7 +125,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.unitHeader}>
           <Text style={styles.unit}>{partner.unit.toUpperCase()}</Text>
-          <Text style={styles.unitCallSigns}>({unitCallSigns})</Text>
+          <Text style={styles.unitCallSigns}>{unitCallSigns}</Text>
         </View>
         {partner.dutyStatus === 'cover_requested' ? <Text style={[styles.dutyBanner, styles.coverBanner]}>COVER REQUESTED</Text> : null}
         {partner.dutyStatus === 'traffic_stop' ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text> : null}
@@ -203,9 +203,9 @@ const styles = StyleSheet.create({
   backButton: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 18 },
   backText: { color: colors.accent, fontSize: 16, fontWeight: '800' },
   content: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 },
-  unitHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 8 },
+  unitHeader: { alignItems: 'center', justifyContent: 'center' },
   unit: { color: colors.accent, fontSize: 25, fontWeight: '900', letterSpacing: 0.8 },
-  unitCallSigns: { color: colors.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  unitCallSigns: { color: colors.muted, fontSize: 12, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
   dutyBanner: { width: '100%', textAlign: 'center', borderWidth: 2, borderRadius: 9, paddingVertical: 9, marginTop: 12, fontWeight: '900', letterSpacing: 1.2 },
   stopBanner: { color: colors.background, borderColor: colors.accent, backgroundColor: colors.accent },
   coverBanner: { color: colors.background, borderColor: colors.danger, backgroundColor: colors.danger },
