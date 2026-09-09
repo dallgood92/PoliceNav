@@ -97,7 +97,7 @@ const server = createServer(async (req, res) => {
       if (!body?.id || !body?.email || !body?.name?.trim() || !body?.deviceId || !body?.callSign?.trim()) return reply(res, 400, { error: 'First name, last name, and call sign are required.' });
       const profile = { ...body, name: body.name.trim(), callSign: body.callSign.trim(), unitNumber: body.unitNumber?.trim() || null };
       const conflict = await store.findUserIdentityConflict(profile);
-      if (conflict) return reply(res, 409, { error: conflict === 'callSign' ? 'That call sign is already in use.' : 'An officer with that name already exists.' });
+      if (conflict) return reply(res, 409, { error: 'Officer already added.' });
       return reply(res, 200, { user: await store.upsertUser(profile) });
     }
     if (req.method === 'POST' && url.pathname === '/departments') {
