@@ -176,3 +176,37 @@ export async function lookupDentonCountyLocation(latitude, longitude) {
       : null,
   };
 }
+
+export async function lookupNearbyDentonCountyAddresses(latitude, longitude, radiusMeters = 260) {
+  if (!isInDentonCounty(latitude, longitude)) return [];
+  const features = await queryFeatures(
+    queryUrl(
+      `${PUBLIC_SAFETY_URL}/8`,
+      latitude,
+      longitude,
+      radiusMeters,
+      'HSNUM,STREET,NEW_ADDRES',
+    ),
+  );
+  const seen = new Set();
+  const addresses = features.flatMap((feature) => {
+    const houseNumber = String(clean(feature.attributes?.HSNUM) || '').trim();
+    const point = feature.geometry;
+    if (!houseNumber || !Number.isFinite(point?.y) || !Number.isFinite(point?.x)) return [];
+    const key = `${houseNumber}:${point.y.toFixed(6)}:${point.x.toFixed(6)}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [{
+      id: key,
+      houseNumber,
+      street: clean(feature.attributes?.STREET),
+      coordinate: { latitude: point.y, longitude: point.x },
+    }];
+  }).sort((a, b) => distanceInMeters({ latitude, longitude }, a.coordinate) - distanceInMeters({ latitude, longitude }, b.coordinate));
+  const spaced = [];
+  for (const address of addresses) {
+    if (spaced.every((visible) => distanceInMeters(visible.coordinate, address.coordinate) >= 18)) spaced.push(address);
+    if (spaced.length >= 55) break;
+  }
+  return spaced;
+}

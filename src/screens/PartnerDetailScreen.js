@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
 import { fetchDrivingRoute } from '../services/routeService';
+import { lookupNearbyDentonCountyAddresses } from '../services/dentonCountyService';
 import { colors } from '../theme/colors';
 import { getPartnerPresence } from '../utils/presence';
 import { deriveHundredBlock, formatLocality, formatStreet } from '../utils/address';
@@ -61,8 +62,10 @@ const trimRouteFromPosition = (coordinates, position) => {
 
 function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
   const pursuitPulse = useRef(new Animated.Value(0)).current;
+  const pursuitRotation = useRef(new Animated.Value(0)).current;
   const isPursuit = dutyStatus === 'pursuit';
-  const lightsActive = ['traffic_stop', 'cover_requested', 'pursuit'].includes(dutyStatus);
+  const lightsActive = ['traffic_stop', 'pursuit'].includes(dutyStatus);
+  const hasUnderGlow = ['traffic_stop', 'cover_requested', 'pursuit'].includes(dutyStatus);
   useEffect(() => {
     if (!lightsActive) { pursuitPulse.stopAnimation(); pursuitPulse.setValue(0); return undefined; }
     const duration = isPursuit ? 280 : 600;
@@ -73,15 +76,22 @@ function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
     animation.start();
     return () => animation.stop();
   }, [isPursuit, lightsActive, pursuitPulse]);
-  const staticColor = dutyStatus === 'traffic_stop' ? colors.accent : dutyStatus === 'cover_requested' ? colors.danger : '#FFFFFF';
+  useEffect(() => {
+    if (!isPursuit) { pursuitRotation.stopAnimation(); pursuitRotation.setValue(0); return undefined; }
+    const animation = Animated.loop(Animated.timing(pursuitRotation, { toValue: 1, duration: 850, easing: Easing.linear, useNativeDriver: true }));
+    animation.start();
+    return () => animation.stop();
+  }, [isPursuit, pursuitRotation]);
   const pursuitLeft = pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#EF233C', '#3478F6'] });
   const pursuitRight = pursuitPulse.interpolate({ inputRange: [0, 1], outputRange: ['#3478F6', '#EF233C'] });
-  const callSignColor = isPursuit ? pursuitLeft : staticColor;
+  const glowColor = lightsActive ? pursuitLeft : dutyStatus === 'cover_requested' ? colors.danger : colors.success;
   const label = callSigns.length > 1 ? `${callSigns[0]} +${callSigns.length - 1}` : callSigns[0];
   return (
     <View style={[styles.partnerCarStack, mode === 'compact' && styles.partnerCarStackCompact, mode === 'dot' && styles.partnerCarStackDot]}>
-      <Animated.Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.partnerCallSignText, mode === 'compact' && styles.partnerCallSignTextCompact, mode === 'dot' && styles.partnerCallSignTextDot, { color: callSignColor }]}>{label}</Animated.Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={[styles.partnerCallSignText, mode === 'compact' && styles.partnerCallSignTextCompact, mode === 'dot' && styles.partnerCallSignTextDot]}>{label}</Text>
       <View style={styles.partnerCarImageWrap}>
+        {isPursuit ? <Animated.View style={[styles.partnerPursuitOrbit, mode === 'compact' && styles.partnerPursuitOrbitCompact, mode === 'dot' && styles.partnerPursuitOrbitDot, { transform: [{ rotate: pursuitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]}><View style={[styles.partnerOrbitLight, styles.partnerOrbitTop, styles.partnerOrbitRed]} /><View style={[styles.partnerOrbitLight, styles.partnerOrbitBottom, styles.partnerOrbitBlue]} /></Animated.View> : null}
+        {hasUnderGlow ? <><Animated.View style={[styles.partnerUnderGlow, mode === 'compact' && styles.partnerUnderGlowCompact, mode === 'dot' && styles.partnerUnderGlowDot, { backgroundColor: glowColor, shadowColor: glowColor }]} /><View style={[styles.partnerUnderGlowMask, mode === 'compact' && styles.partnerUnderGlowMaskCompact, mode === 'dot' && styles.partnerUnderGlowMaskDot]} /></> : null}
         <Image source={require('../../assets/partner-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.partnerCarImage, mode === 'compact' && styles.partnerCarImageCompact, mode === 'dot' && styles.partnerCarImageDot]} />
         <View style={[styles.partnerLightBar, mode === 'compact' && styles.partnerLightBarCompact, mode === 'dot' && styles.partnerLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: pursuitLeft }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: pursuitRight }]} /></> : null}</View>
       </View>
@@ -121,11 +131,13 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   const followResumeTimerRef = useRef(null);
   const cameraTiltTimerRef = useRef(null);
   const lastCameraFrameRef = useRef(null);
+  const houseNumberLookupRef = useRef({ location: null, request: 0 });
   const [markerMode, setMarkerMode] = useState('detail');
   const [autoFrame, setAutoFrame] = useState(true);
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [routeHealth, setRouteHealth] = useState('loading');
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [nearbyHouseNumbers, setNearbyHouseNumbers] = useState([]);
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const presence = getPartnerPresence(partner);
@@ -200,6 +212,31 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   useEffect(() => () => clearTimeout(followResumeTimerRef.current), []);
   useEffect(() => () => clearTimeout(cameraTiltTimerRef.current), []);
 
+  useEffect(() => {
+    if (!mapFullscreen || !userLocation?.coords) {
+      setNearbyHouseNumbers([]);
+      return;
+    }
+    const center = userLocation.coords;
+    if (distanceInMeters(houseNumberLookupRef.current.location, center) < 55) return;
+    houseNumberLookupRef.current.location = center;
+    const request = houseNumberLookupRef.current.request + 1;
+    houseNumberLookupRef.current.request = request;
+    lookupNearbyDentonCountyAddresses(center.latitude, center.longitude)
+      .then((addresses) => {
+        if (houseNumberLookupRef.current.request === request && addresses.length) {
+          setNearbyHouseNumbers((current) => {
+            const merged = new Map(current.map((address) => [address.id, address]));
+            addresses.forEach((address) => merged.set(address.id, address));
+            return [...merged.values()]
+              .filter((address) => distanceInMeters(center, address.coordinate) <= 420)
+              .slice(0, 70);
+          });
+        }
+      })
+      .catch(() => { /* Keep the last successful address overlay during a temporary GIS failure. */ });
+  }, [mapFullscreen, userLocation?.coords?.latitude, userLocation?.coords?.longitude]);
+
   const updateMarkerMode = (region) => {
     const nextMode = region.latitudeDelta > 0.5 ? 'dot' : region.latitudeDelta > 0.08 ? 'compact' : 'detail';
     setMarkerMode((current) => current === nextMode ? current : nextMode);
@@ -246,14 +283,14 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       ? userCoords.heading
       : bearingBetween(userCoords, forwardRoutePoint || selectedPartnerCoords);
     if (mapFullscreen) {
-      const altitude = distance < 500 ? 350 : distance < 1_600 ? 500 : 700;
+      const altitude = distance < 500 ? 155 : distance < 1_600 ? 185 : 220;
       mapRef.current.animateCamera({
         center: {
           latitude: userCoords.latitude,
           longitude: userCoords.longitude,
         },
         heading: drivingHeading,
-        pitch: 60,
+        pitch: 65,
         altitude,
       }, { duration: 450 });
       return;
@@ -307,6 +344,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     : partner.dutyStatus === 'traffic_stop'
       ? <Text style={[styles.dutyBanner, styles.stopBanner]}>TRAFFIC STOP</Text>
       : partner.dutyStatus === 'pursuit' ? <Text style={[styles.dutyBanner, styles.pursuitBanner]}>PURSUIT</Text> : null;
+  const selectedAddress = [locationDetails.address?.streetNumber, formatStreet(locationDetails.address)].filter(Boolean).join(' ');
   const identityAndLocation = (
     <>
       <View style={styles.unitHeader}><Text style={styles.unit}>{unitCallSigns}</Text><Text style={styles.unitCallSigns}>{partner.unit.toUpperCase()}</Text></View>
@@ -314,7 +352,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       {statusBanner}
       <View style={[styles.locationSummary, isLandscape && styles.locationSummaryLandscape]}>
         <Text style={styles.locationLabel}>CURRENT LOCATION</Text>
-        <Text adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.partnerStreet, isLandscape && styles.partnerStreetLandscape]} numberOfLines={1}>{locationDetails.loading ? 'LOCATING STREET…' : formatStreet(locationDetails.address)}</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.partnerStreet, isLandscape && styles.partnerStreetLandscape]} numberOfLines={1}>{locationDetails.loading ? 'LOCATING STREET…' : [locationDetails.address?.streetNumber, formatStreet(locationDetails.address)].filter(Boolean).join(' ')}</Text>
         {block ? <Text style={styles.partnerBlock}>{block}</Text> : null}
         <Text style={styles.locality}>{formatLocality(locationDetails.address).toUpperCase()}</Text>
         <View style={styles.locationDivider} />
@@ -331,6 +369,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             style={styles.map}
             userInterfaceStyle="dark"
             customMapStyle={DARK_MAP_STYLE}
+            showsBuildings
             pitchEnabled
             rotateEnabled
             scrollEnabled
@@ -346,6 +385,19 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
             }}
           >
             {liveRouteCoordinates.length > 1 ? <Polyline coordinates={liveRouteCoordinates} strokeColor={colors.accent} strokeWidth={6} lineCap="round" lineJoin="round" zIndex={2} /> : null}
+            {mapFullscreen ? nearbyHouseNumbers.map((address) => (
+              <Marker
+                key={`house-${address.id}`}
+                coordinate={address.coordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+                tracksViewChanges
+                zIndex={50}
+              >
+                <View pointerEvents="none" style={styles.houseNumberBadge}>
+                  <Text style={styles.houseNumberText}>{address.houseNumber}</Text>
+                </View>
+              </Marker>
+            )) : null}
             {userLocation?.coords ? (
               <Marker
                 coordinate={{
@@ -374,6 +426,17 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
           {routeHealth === 'throttled' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE THROTTLED · MAY BE OUTDATED</Text></View> : null}
           {routeHealth === 'unavailable' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE UPDATE DELAYED</Text></View> : null}
           {!autoFrame ? <Pressable accessibilityRole="button" accessibilityLabel="Resume following both units" onPress={resumeAutoFrame} style={styles.followButton}><Text style={styles.followText}>FOLLOW</Text></Pressable> : null}
+          {mapFullscreen ? (
+            <View pointerEvents="none" style={styles.fullscreenAddressBadge}>
+              <View style={styles.fullscreenAddressHeader}>
+                <Text style={styles.fullscreenAddressLabel}>PARTNER LOCATION</Text>
+                <Text style={[styles.fullscreenPresenceText, presence.online ? styles.partnerOnlineText : styles.partnerOfflineText]}>{presence.label.toUpperCase()}</Text>
+              </View>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65} style={styles.fullscreenAddressText}>
+                {locationDetails.loading ? 'LOCATING ADDRESS…' : selectedAddress || 'HOUSE NUMBER UNAVAILABLE'}
+              </Text>
+            </View>
+          ) : null}
           <Pressable accessibilityRole="button" accessibilityLabel={mapFullscreen ? 'Exit full-screen map' : 'Open full-screen map'} onPress={() => setMapFullscreen((current) => !current)} style={styles.fullscreenButton}><Text style={styles.fullscreenButtonText}>{mapFullscreen ? '×' : '⛶'}</Text></Pressable>
     </View>
   );
@@ -450,16 +513,30 @@ const styles = StyleSheet.create({
   partnerCarStack: { alignItems: 'center', width: 55 },
   partnerCarStackCompact: { width: 31 },
   partnerCarStackDot: { width: 37 },
-  partnerCallSignText: { position: 'absolute', zIndex: 2, top: -14, maxWidth: 55, color: '#64748B', fontSize: 12, lineHeight: 14, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  partnerCallSignText: { position: 'absolute', zIndex: 5, top: -14, maxWidth: 55, color: colors.accent, fontSize: 12, lineHeight: 14, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
   partnerCallSignTextCompact: { top: -9, fontSize: 7, lineHeight: 8 },
   partnerCallSignTextDot: { top: -10, fontSize: 8, lineHeight: 9 },
   partnerCarImageWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  partnerCarImage: { width: 34, height: 51 },
+  partnerCarImage: { width: 34, height: 51, zIndex: 2 },
   partnerCarImageCompact: { width: 18, height: 27 },
   partnerCarImageDot: { width: 23, height: 35 },
-  partnerLightBar: { position: 'absolute', top: 25, width: 16, height: 4, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820' },
-  partnerLightBarCompact: { top: 13, width: 9, height: 2 },
-  partnerLightBarDot: { top: 17, width: 11, height: 3 },
+  partnerLightBar: { position: 'absolute', top: 25, width: 11, height: 3, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820', zIndex: 3 },
+  partnerLightBarCompact: { top: 13, width: 6, height: 2 },
+  partnerLightBarDot: { top: 17, width: 8, height: 2 },
+  partnerUnderGlow: { position: 'absolute', width: 29, height: 53, borderRadius: 15, opacity: 0.82, shadowOpacity: 1, shadowRadius: 11, shadowOffset: { width: 0, height: 0 }, zIndex: 0 },
+  partnerUnderGlowCompact: { width: 16, height: 29, borderRadius: 8, shadowRadius: 7 },
+  partnerUnderGlowDot: { width: 21, height: 37, borderRadius: 11, shadowRadius: 8 },
+  partnerUnderGlowMask: { position: 'absolute', width: 19, height: 46, borderRadius: 10, backgroundColor: 'rgba(11,17,24,0.96)', zIndex: 1 },
+  partnerUnderGlowMaskCompact: { width: 10, height: 24, borderRadius: 5 },
+  partnerUnderGlowMaskDot: { width: 13, height: 31, borderRadius: 7 },
+  partnerPursuitOrbit: { position: 'absolute', width: 47, height: 61, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', zIndex: 4 },
+  partnerPursuitOrbitCompact: { width: 27, height: 35, borderRadius: 14 },
+  partnerPursuitOrbitDot: { width: 33, height: 43, borderRadius: 17 },
+  partnerOrbitLight: { position: 'absolute', left: '42%', width: 7, height: 7, borderRadius: 4, shadowOpacity: 1, shadowRadius: 5, shadowOffset: { width: 0, height: 0 } },
+  partnerOrbitTop: { top: -4 },
+  partnerOrbitBottom: { bottom: -4 },
+  partnerOrbitRed: { backgroundColor: '#EF233C', shadowColor: '#EF233C' },
+  partnerOrbitBlue: { backgroundColor: '#3478F6', shadowColor: '#3478F6' },
   partnerBlueLight: { flex: 1, backgroundColor: '#3478F6' },
   partnerRedLight: { flex: 1, backgroundColor: '#EF233C' },
   currentUnitMarker: { alignItems: 'center', justifyContent: 'center' },
@@ -468,9 +545,9 @@ const styles = StyleSheet.create({
   currentUnitCar: { width: 36, height: 54 },
   currentUnitCarCompact: { width: 19, height: 29 },
   currentUnitCarDot: { width: 22, height: 33 },
-  currentLightBar: { position: 'absolute', top: 27, width: 17, height: 4, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820' },
-  currentLightBarCompact: { top: 14, width: 9, height: 2 },
-  currentLightBarDot: { top: 16, width: 10, height: 3 },
+  currentLightBar: { position: 'absolute', top: 26, width: 12, height: 3, flexDirection: 'row', overflow: 'hidden', borderRadius: 1, backgroundColor: '#111820' },
+  currentLightBarCompact: { top: 14, width: 6, height: 2 },
+  currentLightBarDot: { top: 17, width: 7, height: 2 },
   liveMapBadge: { position: 'absolute', left: 8, top: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6 },
   liveMapText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   partnerOnlineText: { color: colors.success },
@@ -479,6 +556,13 @@ const styles = StyleSheet.create({
   routeWarningText: { color: colors.warning, fontSize: 8, fontWeight: '900', letterSpacing: 0.55 },
   followButton: { position: 'absolute', right: 8, top: 8, backgroundColor: colors.accent, borderRadius: 6, paddingHorizontal: 11, paddingVertical: 7 },
   followText: { color: colors.background, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
+  fullscreenAddressBadge: { position: 'absolute', left: 10, bottom: 10, maxWidth: '72%', borderRadius: 7, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(11,17,24,0.94)', paddingHorizontal: 10, paddingVertical: 7 },
+  fullscreenAddressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  fullscreenAddressLabel: { color: colors.muted, fontSize: 7, lineHeight: 9, fontWeight: '900', letterSpacing: 0.75 },
+  fullscreenPresenceText: { fontSize: 7, lineHeight: 9, fontWeight: '900', letterSpacing: 0.5 },
+  fullscreenAddressText: { color: colors.accent, fontSize: 12, lineHeight: 15, fontWeight: '900', letterSpacing: 0.25, marginTop: 2 },
+  houseNumberBadge: { borderRadius: 3, borderWidth: 1, borderColor: 'rgba(255,213,74,0.75)', backgroundColor: 'rgba(11,17,24,0.94)', paddingHorizontal: 4, paddingVertical: 2 },
+  houseNumberText: { color: colors.accent, fontSize: 9, lineHeight: 11, fontWeight: '900', textShadowColor: '#000000', textShadowRadius: 2 },
   fullscreenMapFrame: { flex: 1, height: '100%', marginTop: 0, borderRadius: 0, borderWidth: 0 },
   fullscreenButton: { position: 'absolute', right: 9, bottom: 9, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(11,17,24,0.92)' },
   fullscreenButtonText: { color: colors.accent, fontSize: 25, lineHeight: 27, fontWeight: '900' },

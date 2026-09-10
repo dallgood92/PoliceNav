@@ -16,17 +16,18 @@ import DepartmentScreen from './src/screens/DepartmentScreen';
 import { useDutyAssignment } from './src/hooks/useDutyAssignment';
 import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
 import PursuitScreen from './src/screens/PursuitScreen';
+import SquadMapScreen from './src/screens/SquadMapScreen';
 
 function createDemoPartners(location) {
   const latitude = location?.coords?.latitude ?? 33.1212;
   const longitude = location?.coords?.longitude ?? -97.1834;
   const samples = [
-    ['Jordan Martinez', '52', '742', 'pursuit', '#059669', 0.003, 0.002],
-    ['Casey Nguyen', '31', '618', 'traffic_stop', '#059669', -0.002, 0.004],
-    ['Taylor Brooks', '18', '405', 'cover_requested', '#059669', 0.005, -0.003],
-    ['Morgan Reed', '63', '296', 'available', '#059669', -0.004, -0.002],
-    ['Avery Patel', '24', '531', 'available', '#059669', 0.001, -0.005],
-    ['Cameron Lewis', '39', '684', 'available', '#059669', 0.006, 0.001],
+    ['Jordan Martinez', '52', '742', 'pursuit', '#059669', 0.018, -0.014],
+    ['Casey Nguyen', '31', '618', 'traffic_stop', '#059669', -0.017, 0.016],
+    ['Taylor Brooks', '18', '405', 'cover_requested', '#059669', 0.012, 0.019],
+    ['Morgan Reed', '63', '296', 'available', '#059669', -0.021, -0.012],
+    ['Avery Patel', '24', '531', 'available', '#059669', 0.004, -0.024],
+    ['Cameron Lewis', '39', '684', 'available', '#059669', 0.024, 0.006],
   ];
   return samples.map(([name, unit, callSign, dutyStatus, avatarColor, latitudeOffset, longitudeOffset], index) => ({
     id: `demo-partner-${index + 1}`, name, unit: `Unit ${unit}`, callSign, avatarColor, dutyStatus,
@@ -41,6 +42,7 @@ export default function App() {
   const [notificationPartner, setNotificationPartner] = useState(null);
   const [fullscreenRequestKey, setFullscreenRequestKey] = useState(0);
   const [showDepartment, setShowDepartment] = useState(false);
+  const [showSquadMap, setShowSquadMap] = useState(false);
   const lastForegroundPublish = useRef(0);
   const partnerState = usePartners();
   const partners = partnerState.partners;
@@ -115,6 +117,8 @@ export default function App() {
             onDone={() => setShowDepartment(false)}
             onSignOut={session.signOut}
           />
+        ) : showSquadMap ? (
+          <SquadMapScreen partners={displayedPartners} userLocation={live.location} duty={duty.assignment} onClose={() => setShowSquadMap(false)} />
         ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
@@ -136,6 +140,7 @@ export default function App() {
             duty={duty.assignment}
             onDutyChange={changeDuty}
             onManageDepartment={() => setShowDepartment(true)}
+            onOpenSquadMap={() => setShowSquadMap(true)}
             onSelectPartner={(partner) => setSelectedPartnerId(partner.id)}
           />
         )}

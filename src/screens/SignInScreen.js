@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -8,6 +8,14 @@ export default function SignInScreen({ session }) {
   const [callSign, setCallSign] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [departmentCode, setDepartmentCode] = useState('');
+  useEffect(() => {
+    const saved = session.savedProfile;
+    if (!saved) return;
+    setFirstName(saved.firstName || '');
+    setLastName(saved.lastName || '');
+    setCallSign(saved.callSign || '');
+    setUnitNumber(saved.unitNumber || '');
+  }, [session.savedProfile]);
   const complete = [firstName, lastName, callSign, departmentCode].every((value) => value.trim());
 
   return (

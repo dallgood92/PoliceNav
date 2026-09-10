@@ -6,7 +6,18 @@ import PartnerRow from '../components/PartnerRow';
 import DutyAssignmentCard from '../components/DutyAssignmentCard';
 import { colors } from '../theme/colors';
 
-export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onSelectPartner }) {
+function MapIcon() {
+  return (
+    <View style={styles.mapIcon}>
+      <View style={[styles.mapFold, styles.mapFoldLeft]} />
+      <View style={[styles.mapFold, styles.mapFoldMiddle]} />
+      <View style={[styles.mapFold, styles.mapFoldRight]} />
+      <View style={styles.mapRouteDot} />
+    </View>
+  );
+}
+
+export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onOpenSquadMap, onSelectPartner }) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -36,6 +47,7 @@ export default function HomeScreen({ live, partners, department, squads, officer
     <View style={styles.screen}>
       <View style={styles.topBar}>
         <Pressable accessibilityLabel="Open menu" accessibilityRole="button" onPress={() => setMenuOpen(true)} style={styles.menuButton}><Text style={styles.menuGlyph}>☰</Text></Pressable>
+        <Pressable accessibilityLabel="Open squad overview map" accessibilityRole="button" onPress={onOpenSquadMap} style={styles.mapButton}><MapIcon /></Pressable>
       </View>
       <View style={[styles.body, landscape && styles.bodyLandscape]}>{locationPanel}{landscape ? <View style={styles.verticalRule} /> : null}{controlsPanel}</View>
       <Modal visible={menuOpen} transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setMenuOpen(false)}>
@@ -51,8 +63,15 @@ export default function HomeScreen({ live, partners, department, squads, officer
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, paddingHorizontal: 12, paddingBottom: 8 }, topBar: { height: 42, flexDirection: 'row', alignItems: 'center' },
+  screen: { flex: 1, paddingHorizontal: 12, paddingBottom: 8 }, topBar: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   menuButton: { width: 42, height: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: colors.panel }, menuGlyph: { color: colors.accent, fontSize: 23, fontWeight: '900', lineHeight: 25 },
+  mapButton: { width: 42, height: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 8, backgroundColor: colors.panel },
+  mapIcon: { width: 23, height: 21, position: 'relative', flexDirection: 'row', transform: [{ rotate: '-2deg' }] },
+  mapFold: { width: 8, height: 20, borderColor: colors.accent, borderTopWidth: 2, borderBottomWidth: 2 },
+  mapFoldLeft: { borderLeftWidth: 2, transform: [{ skewY: '-12deg' }] },
+  mapFoldMiddle: { borderLeftWidth: 2, borderRightWidth: 2, transform: [{ skewY: '12deg' }] },
+  mapFoldRight: { width: 7, borderRightWidth: 2, transform: [{ skewY: '-12deg' }] },
+  mapRouteDot: { position: 'absolute', right: 3, top: 4, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent },
   body: { flex: 1 }, bodyLandscape: { flexDirection: 'row', gap: 10 }, locationPanel: { flex: 1, justifyContent: 'center' }, controlsPanel: { flex: 1, justifyContent: 'center' }, controlsPanelLandscape: { justifyContent: 'flex-start', paddingTop: 2 }, verticalRule: { width: 1, marginVertical: 8, backgroundColor: colors.border },
   notice: { color: colors.warning, backgroundColor: colors.panel, fontSize: 11, fontWeight: '700', marginHorizontal: 6, marginTop: 5, padding: 7, borderRadius: 6 }, partnerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32, marginHorizontal: 4, marginTop: 5 }, sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1.2 },
   partnerCount: { color: colors.muted, fontSize: 11, fontWeight: '900' }, partnerScroller: { flexShrink: 1 }, partnerScrollerLandscape: { flex: 1 }, partnerList: { minHeight: 88, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }, partnerListLandscape: { minHeight: 0, flexDirection: 'column', flexWrap: 'nowrap' }, emptyPartners: { width: '100%', color: colors.muted, backgroundColor: colors.panel, borderRadius: 9, padding: 15, textAlign: 'center', fontSize: 12 },
