@@ -49,7 +49,7 @@ export function useOfficerSession() {
       const result = await upsertOfficer(profile);
       const savedOfficer = { ...result.user, callSign: profile.callSign, unitNumber: profile.unitNumber, profileVersion: PROFILE_VERSION };
       const duty = await loadDutyAssignment();
-      await saveDutyAssignment({ ...duty, callSign: profile.callSign, unitNumber: profile.unitNumber });
+      await saveDutyAssignment({ ...duty, callSign: profile.callSign });
       const rememberedProfile = { firstName: profile.firstName, lastName: profile.lastName, callSign: profile.callSign, unitNumber: profile.unitNumber };
       setOfficer(savedOfficer);
       setSavedProfile(rememberedProfile);

@@ -24,3 +24,10 @@ export const createSquad = (departmentId, name, adminUserId) => apiRequest(`/dep
 export const assignSquadMember = (squadId, userId, adminUserId) => apiRequest(`/squads/${squadId}/members`, {
   method: 'POST', body: JSON.stringify({ userId, adminUserId }),
 });
+export const removeSquadMember = (squadId, userId, adminUserId) => apiRequest(`/squads/${squadId}/members/${userId}`, {
+  method: 'DELETE', body: JSON.stringify({ adminUserId }),
+});
+
+export const removeDepartmentMember = (departmentId, userId, adminUserId) => apiRequest(`/departments/${departmentId}/members/${userId}`, {
+  method: 'DELETE', body: JSON.stringify({ adminUserId }),
+});

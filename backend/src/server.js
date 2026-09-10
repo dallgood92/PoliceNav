@@ -128,6 +128,16 @@ const server = createServer(async (req, res) => {
       const squad = await store.addSquadMember({ squadId: memberMatch[1], adminUserId: body?.adminUserId, userId: body?.userId });
       return squad ? reply(res, 200, { squad }) : reply(res, 403, { error: 'Not allowed.' });
     }
+    const squadMemberMatch = url.pathname.match(/^\/squads\/([^/]+)\/members\/([^/]+)$/);
+    if (req.method === 'DELETE' && squadMemberMatch) {
+      const squad = await store.removeSquadMember({ squadId: squadMemberMatch[1], userId: squadMemberMatch[2], adminUserId: body?.adminUserId });
+      return squad ? reply(res, 200, { squad }) : reply(res, 403, { error: 'Not allowed.' });
+    }
+    const removeMemberMatch = url.pathname.match(/^\/departments\/([^/]+)\/members\/([^/]+)$/);
+    if (req.method === 'DELETE' && removeMemberMatch) {
+      const removed = await store.removeDepartmentMember({ departmentId: removeMemberMatch[1], userId: removeMemberMatch[2], adminUserId: body?.adminUserId });
+      return removed ? reply(res, 200, { removed: true }) : reply(res, 403, { error: 'Only department members can be removed. Administrators cannot remove themselves.' });
+    }
     if (req.method === 'POST' && url.pathname === '/devices/register') {
       if (!body?.deviceId || !/^(Exponent|Expo)PushToken\[[^\]]+\]$/.test(body?.pushToken || '')) return reply(res, 400, { error: 'Invalid device registration.' });
       await store.registerDevice(body.deviceId, body.pushToken); return reply(res, 200, { registered: true });

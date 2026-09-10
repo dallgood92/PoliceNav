@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { lastName } from '../utils/name';
 
 export default function DutyAssignmentCard({ officer, partners = [], assignment, onChange, dense = false }) {
   const [editing, setEditing] = useState(false);
+  const { width, height } = useWindowDimensions();
+  const landscape = width > height;
   const statusLabel = assignment.status === 'pursuit' ? 'PURSUIT' : assignment.status === 'cover_requested' ? 'COVER REQUESTED' : assignment.status === 'traffic_stop' ? 'TRAFFIC STOP' : 'AVAILABLE';
   const highlighted = assignment.status !== 'available';
   return (
     <View style={[styles.card, dense && styles.denseCard, assignment.status === 'traffic_stop' && styles.stopCard, assignment.status === 'cover_requested' && styles.coverCard, assignment.status === 'pursuit' && styles.pursuitCard]}>
       <View style={styles.header}>
-        <View><Text style={[styles.eyebrow, highlighted && styles.alertInk]}>MY CURRENT UNIT</Text><View style={styles.unitTitle}><View style={[styles.avatarDot, { backgroundColor: assignment.avatarColor }]} /><Text style={[styles.unit, dense && styles.denseUnit, highlighted && styles.alertInk]}>UNIT {assignment.unitNumber}</Text></View></View>
+        <View><Text style={[styles.eyebrow, highlighted && styles.alertInk]}>MY CURRENT UNIT</Text><View style={styles.unitTitle}><View style={[styles.avatarDot, { backgroundColor: assignment.avatarColor }]} /><Text style={[styles.unit, dense && styles.denseUnit, highlighted && styles.alertInk]}>{assignment.unitNumber ? `UNIT ${assignment.unitNumber}` : 'UNIT NOT SET'}</Text></View></View>
         <Pressable onPress={() => setEditing((value) => !value)}><Text style={[styles.edit, highlighted && styles.alertInk]}>{editing ? 'DONE' : 'EDIT'}</Text></Pressable>
       </View>
       <Text style={[styles.officers, dense && styles.denseOfficers, highlighted && styles.alertInk]}>
@@ -18,9 +20,9 @@ export default function DutyAssignmentCard({ officer, partners = [], assignment,
           ? `${lastName(officer?.name || 'OFFICER').toUpperCase()} (${assignment.callSign || '—'}) / ${lastName(assignment.secondOfficer).toUpperCase()} (${assignment.secondOfficerCallSign || '—'})`
           : `${lastName(officer?.name || 'OFFICER').toUpperCase()} (${assignment.callSign || '—'})`}
       </Text>
-      <Modal visible={editing} transparent animationType="fade" onRequestClose={() => setEditing(false)}>
-        <View style={styles.editorScrim}>
-        <View style={styles.editorModal}>
+      <Modal visible={editing} transparent animationType="fade" supportedOrientations={['portrait', 'landscape']} onRequestClose={() => setEditing(false)}>
+        <View style={[styles.editorScrim, landscape && styles.editorScrimLandscape]}>
+        <ScrollView style={[styles.editorModal, landscape && styles.editorModalLandscape]} contentContainerStyle={[styles.editorContent, landscape && styles.editorContentLandscape]} keyboardShouldPersistTaps="handled">
           <View style={styles.editorHeader}><Text style={styles.editorTitle}>EDIT CURRENT UNIT</Text><Pressable onPress={() => setEditing(false)}><Text style={styles.edit}>DONE</Text></Pressable></View>
           <View style={styles.inputs}>
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>UNIT NUMBER</Text><TextInput value={assignment.unitNumber} onChangeText={(unitNumber) => onChange({ ...assignment, unitNumber })} placeholder="47" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.input} /></View>
@@ -28,8 +30,8 @@ export default function DutyAssignmentCard({ officer, partners = [], assignment,
           </View>
           <Text style={styles.label}>SECOND OFFICER</Text>
           <Pressable onPress={() => onChange({ ...assignment, secondOfficer: null, secondOfficerCallSign: null })} style={[styles.choice, !assignment.secondOfficer && styles.choiceActive]}><Text style={styles.choiceText}>None — one officer</Text></Pressable>
-          {partners.map((partner) => <Pressable key={partner.id} onPress={() => onChange({ ...assignment, secondOfficer: partner.name, secondOfficerCallSign: partner.callSign || null })} style={[styles.choice, assignment.secondOfficer === partner.name && styles.choiceActive]}><Text style={styles.choiceText}>{lastName(partner.name)}{partner.callSign ? ` (${partner.callSign})` : ''}</Text></Pressable>)}
-        </View>
+          {partners.map((partner) => <Pressable key={partner.id} onPress={() => onChange({ ...assignment, unitNumber: String(partner.unit || '').replace(/^Unit\s*/i, '').trim(), secondOfficer: partner.name, secondOfficerCallSign: partner.callSign || null })} style={[styles.choice, assignment.secondOfficer === partner.name && styles.choiceActive]}><Text style={styles.choiceText}>{lastName(partner.name)}{partner.callSign ? ` (${partner.callSign})` : ''}{partner.unit ? ` · ${partner.unit}` : ''}</Text></Pressable>)}
+        </ScrollView>
         </View>
       </Modal>
       <Text style={[styles.label, dense && styles.denseLabel, highlighted && styles.alertInk]}>MY STATUS · {statusLabel}</Text>
@@ -57,7 +59,7 @@ const styles = StyleSheet.create({
   denseUnit: { fontSize: 17 },
   officers: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 7 }, editor: { marginTop: 12 }, inputs: { flexDirection: 'row', gap: 8 },
   denseOfficers: { fontSize: 10, lineHeight: 13, marginTop: 3 },
-  editorScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 20 }, editorModal: { backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14, padding: 18 }, editorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }, editorTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
+  editorScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 20 }, editorScrimLandscape: { alignItems: 'center', paddingVertical: 8 }, editorModal: { maxHeight: '90%', backgroundColor: colors.panel, borderColor: colors.border, borderWidth: 1, borderRadius: 14 }, editorModalLandscape: { width: '82%', maxWidth: 720, maxHeight: '96%' }, editorContent: { padding: 18 }, editorContentLandscape: { paddingVertical: 12, paddingHorizontal: 18 }, editorHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }, editorTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
   inputGroup: { flex: 1 }, inputLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', marginBottom: 5, letterSpacing: 0.7 },
   input: { minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text, paddingHorizontal: 12, backgroundColor: colors.background },
   label: { color: colors.muted, fontSize: 10, fontWeight: '900', letterSpacing: 0.8, marginTop: 13, marginBottom: 6 },

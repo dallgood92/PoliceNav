@@ -99,7 +99,7 @@ function PartnerCarMarker({ callSigns, dutyStatus, mode }) {
   );
 }
 
-function CurrentUnitMarker({ callSign, dutyStatus, heading, mode }) {
+function CurrentUnitMarker({ callSign, secondOfficerCallSign, sharedUnit, fullscreen, dutyStatus, heading, mode }) {
   const lightPulse = useRef(new Animated.Value(0)).current;
   const lightsActive = ['traffic_stop', 'cover_requested', 'pursuit'].includes(dutyStatus);
   useEffect(() => {
@@ -113,18 +113,21 @@ function CurrentUnitMarker({ callSign, dutyStatus, heading, mode }) {
     return () => animation.stop();
   }, [dutyStatus, lightPulse, lightsActive]);
   const rotation = Number.isFinite(heading) && heading >= 0 ? `${heading}deg` : '0deg';
+  const pairedCallSign = sharedUnit ? secondOfficerCallSign : null;
   const leftLight = lightPulse.interpolate({ inputRange: [0, 1], outputRange: ['#3478F6', '#EF233C'] });
   const rightLight = lightPulse.interpolate({ inputRange: [0, 1], outputRange: ['#EF233C', '#3478F6'] });
   return (
     <View style={[styles.currentUnitMarker, { transform: [{ rotate: rotation }] }]}>
-      {callSign ? <Text style={[styles.currentUnitCallSign, mode !== 'detail' && styles.currentUnitCallSignCompact]}>{callSign}</Text> : null}
+      {callSign && pairedCallSign ? <Text style={[styles.currentUnitSideCallSign, styles.currentUnitLeftCallSign, mode !== 'detail' && styles.currentUnitSideCallSignCompact, mode !== 'detail' && styles.currentUnitLeftCallSignCompact]}>{callSign}</Text> : null}
+      {callSign && !pairedCallSign ? <Text style={[styles.currentUnitCallSign, mode !== 'detail' && styles.currentUnitCallSignCompact]}>{callSign}</Text> : null}
       <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" fadeDuration={0} tintColor={null} style={[styles.currentUnitCar, mode === 'compact' && styles.currentUnitCarCompact, mode === 'dot' && styles.currentUnitCarDot]} />
       <View style={[styles.currentLightBar, mode === 'compact' && styles.currentLightBarCompact, mode === 'dot' && styles.currentLightBarDot]}>{lightsActive ? <><Animated.View style={[styles.partnerBlueLight, { backgroundColor: leftLight }]} /><Animated.View style={[styles.partnerRedLight, { backgroundColor: rightLight }]} /></> : null}</View>
+      {pairedCallSign ? <Text style={[styles.currentUnitSideCallSign, styles.currentUnitRightCallSign, mode !== 'detail' && styles.currentUnitSideCallSignCompact, mode !== 'detail' && styles.currentUnitRightCallSignCompact]}>{pairedCallSign}</Text> : null}
     </View>
   );
 }
 
-export default function PartnerDetailScreen({ partner, partners, duty, userLocation, fullscreenRequestKey = 0, onBack }) {
+export default function PartnerDetailScreen({ partner, partners, duty, sharedUnit = false, userLocation, fullscreenRequestKey = 0, onBack }) {
   const mapRef = useRef(null);
   const lastRouteRequestRef = useRef({ origin: null, destination: null });
   const routeAbortRef = useRef(null);
@@ -410,7 +413,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
                 description="Your unit's live GPS location"
               anchor={{ x: 0.5, y: 0.5 }}
               >
-                <CurrentUnitMarker callSign={duty?.callSign} dutyStatus={duty?.status} heading={mapFullscreen ? 0 : userLocation.coords.heading} mode={markerMode} />
+                <CurrentUnitMarker callSign={duty?.callSign} secondOfficerCallSign={duty?.secondOfficerCallSign} sharedUnit={sharedUnit} fullscreen={mapFullscreen} dutyStatus={duty?.status} heading={mapFullscreen ? 0 : userLocation.coords.heading} mode={markerMode} />
               </Marker>
             ) : null}
             {mapPartners.map((mapPartner) => (
@@ -544,8 +547,14 @@ const styles = StyleSheet.create({
   partnerBlueLight: { flex: 1, backgroundColor: '#3478F6' },
   partnerRedLight: { flex: 1, backgroundColor: '#EF233C' },
   currentUnitMarker: { alignItems: 'center', justifyContent: 'center' },
-  currentUnitCallSign: { position: 'absolute', zIndex: 2, top: -13, color: '#FFFFFF', fontSize: 11, lineHeight: 12, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  currentUnitCallSign: { position: 'absolute', zIndex: 4, top: -13, color: '#FFFFFF', fontSize: 11, lineHeight: 12, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
   currentUnitCallSignCompact: { top: -9, fontSize: 8, lineHeight: 9 },
+  currentUnitSideCallSign: { position: 'absolute', zIndex: 4, top: 21, color: '#FFFFFF', fontSize: 11, lineHeight: 12, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(11,17,24,0.95)', textShadowRadius: 3, textShadowOffset: { width: 0, height: 1 } },
+  currentUnitLeftCallSign: { right: 28 },
+  currentUnitRightCallSign: { left: 28 },
+  currentUnitSideCallSignCompact: { top: 10, fontSize: 8, lineHeight: 9 },
+  currentUnitLeftCallSignCompact: { right: 16 },
+  currentUnitRightCallSignCompact: { left: 16 },
   currentUnitCar: { width: 36, height: 54 },
   currentUnitCarCompact: { width: 19, height: 29 },
   currentUnitCarDot: { width: 22, height: 33 },

@@ -17,7 +17,7 @@ function MapIcon() {
   );
 }
 
-export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onOpenSquadMap, onSelectPartner, pushAlertsEnabled, onPushAlertsChange }) {
+export default function HomeScreen({ live, partners, unitPartners = partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onOpenSquadMap, onSelectPartner, pushAlertsEnabled, onPushAlertsChange }) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -30,7 +30,7 @@ export default function HomeScreen({ live, partners, department, squads, officer
   const locationPanel = <View style={styles.locationPanel}><LocationHero {...live} compact />{!landscape ? <LocationStats location={live.location} compact /> : null}</View>;
   const controlsPanel = (
     <View style={[styles.controlsPanel, landscape && styles.controlsPanelLandscape]}>
-      <DutyAssignmentCard officer={officer} partners={partners} assignment={duty} onChange={onDutyChange} compact dense={landscape} />
+      <DutyAssignmentCard officer={officer} partners={unitPartners} assignment={duty} onChange={onDutyChange} compact dense={landscape} />
       {live.error ? <Text numberOfLines={2} style={styles.notice}>{live.error}</Text> : null}
       <View style={styles.partnerHeader}>
         <Text style={styles.sectionTitle}>PARTNERS</Text>

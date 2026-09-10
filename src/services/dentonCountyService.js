@@ -203,10 +203,5 @@ export async function lookupNearbyDentonCountyAddresses(latitude, longitude, rad
       coordinate: { latitude: point.y, longitude: point.x },
     }];
   }).sort((a, b) => distanceInMeters({ latitude, longitude }, a.coordinate) - distanceInMeters({ latitude, longitude }, b.coordinate));
-  const spaced = [];
-  for (const address of addresses) {
-    if (spaced.every((visible) => distanceInMeters(visible.coordinate, address.coordinate) >= 18)) spaced.push(address);
-    if (spaced.length >= 55) break;
-  }
-  return spaced;
+  return addresses.slice(0, 140);
 }

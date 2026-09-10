@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const DUTY_KEY = '@blockwatch/duty-assignment-v2';
+export const DUTY_KEY = '@blockwatch/duty-assignment-v3';
 const DEFAULT_AVATAR_COLOR = '#059669';
 export const defaultDutyAssignment = {
   unitNumber: '',

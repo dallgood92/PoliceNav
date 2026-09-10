@@ -5,6 +5,8 @@ import { colors } from '../theme/colors';
 import { getPartnerPresence } from '../utils/presence';
 import { usePartnerLocationDetails } from '../hooks/usePartnerLocationDetails';
 import { deriveHundredBlock, formatStreet } from '../utils/address';
+import { partnerCallSignLabel, SHARED_UNIT_DISTANCE_METERS } from '../utils/unitGrouping';
+import { distanceInMeters } from '../utils/geo';
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#17212B' }] },
@@ -73,7 +75,7 @@ function OfficerMarker({ partner, onPress }) {
       style={styles.markerTouchTarget}
     >
     <View style={styles.marker} pointerEvents="none">
-      <View style={styles.markerIdentity}><View style={[styles.presenceDot, { backgroundColor: presence.online ? colors.success : colors.danger }]} /><Text style={styles.callSign}>{partner.callSign || '—'}</Text></View>
+      <View style={styles.markerIdentity}><View style={[styles.presenceDot, { backgroundColor: presence.online ? colors.success : colors.danger }]} /><Text style={styles.callSign}>{partnerCallSignLabel(partner)}</Text></View>
       <View style={styles.partnerCarWrap}>
         {isPursuit ? (
           <Animated.View style={[styles.pursuitOrbit, { transform: [{ rotate: pursuitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]}>
@@ -111,7 +113,7 @@ function SelectedLocationCard({ partner, onClose }) {
   return (
     <View style={styles.selectedLocationCard}>
       <View style={styles.selectedLocationHeader}>
-        <View style={styles.selectedIdentity}><View style={[styles.selectedPresenceDot, { backgroundColor: presence.online ? colors.success : colors.danger }]} /><Text style={styles.selectedCallSign}>{partner.callSign || '—'}</Text><Text style={styles.selectedPresence}>{presence.label.toUpperCase()}</Text></View>
+        <View style={styles.selectedIdentity}><View style={[styles.selectedPresenceDot, { backgroundColor: presence.online ? colors.success : colors.danger }]} /><Text style={styles.selectedCallSign}>{partnerCallSignLabel(partner)}</Text><Text style={styles.selectedPresence}>{presence.label.toUpperCase()}</Text></View>
         <Pressable accessibilityLabel="Hide partner location" accessibilityRole="button" onPress={onClose} hitSlop={10}><Text style={styles.locationClose}>×</Text></Pressable>
       </View>
       <Text style={styles.selectedBlock}>{details.loading ? 'LOCATING…' : block || 'BLOCK UNAVAILABLE'}</Text>
@@ -120,11 +122,43 @@ function SelectedLocationCard({ partner, onClose }) {
   );
 }
 
-function CurrentMarker({ callSign }) {
+function CurrentMarker({ callSign, pairedCallSign, dutyStatus }) {
+  const emergencyFlash = useRef(new Animated.Value(0)).current;
+  const pursuitRotation = useRef(new Animated.Value(0)).current;
+  const isPursuit = dutyStatus === 'pursuit';
+  const flashesRedBlue = isPursuit || dutyStatus === 'traffic_stop';
+  const hasUnderGlow = flashesRedBlue || dutyStatus === 'cover_requested';
+  useEffect(() => {
+    if (!flashesRedBlue) { emergencyFlash.stopAnimation(); emergencyFlash.setValue(0); return undefined; }
+    const duration = isPursuit ? 220 : 420;
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(emergencyFlash, { toValue: 1, duration, useNativeDriver: false }),
+      Animated.timing(emergencyFlash, { toValue: 0, duration, useNativeDriver: false }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [emergencyFlash, flashesRedBlue, isPursuit]);
+  useEffect(() => {
+    if (!isPursuit) { pursuitRotation.stopAnimation(); pursuitRotation.setValue(0); return undefined; }
+    const animation = Animated.loop(Animated.timing(pursuitRotation, { toValue: 1, duration: 850, easing: Easing.linear, useNativeDriver: true }));
+    animation.start();
+    return () => animation.stop();
+  }, [isPursuit, pursuitRotation]);
+  const leftEmergencyColor = emergencyFlash.interpolate({ inputRange: [0, 1], outputRange: ['#EF233C', '#3478F6'] });
+  const rightEmergencyColor = emergencyFlash.interpolate({ inputRange: [0, 1], outputRange: ['#3478F6', '#EF233C'] });
+  const glowColor = flashesRedBlue ? leftEmergencyColor : colors.danger;
   return (
     <View style={styles.marker}>
-      <Text style={styles.youLabel}>{callSign || 'YOU'}</Text>
-      <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" style={styles.currentCar} />
+      <View style={styles.youLabelRow}>
+        <Text style={styles.youLabel}>{callSign || 'YOU'}</Text>
+        {pairedCallSign ? <><Text style={styles.callSignSeparator}> | </Text><Text style={styles.youLabel}>{pairedCallSign}</Text></> : null}
+      </View>
+      <View style={styles.partnerCarWrap}>
+        {isPursuit ? <Animated.View style={[styles.pursuitOrbit, { transform: [{ rotate: pursuitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]}><View style={[styles.orbitLight, styles.orbitTop, styles.orbitRed]} /><View style={[styles.orbitLight, styles.orbitRight, styles.orbitBlue]} /><View style={[styles.orbitLight, styles.orbitBottom, styles.orbitRed]} /><View style={[styles.orbitLight, styles.orbitLeft, styles.orbitBlue]} /></Animated.View> : null}
+        {hasUnderGlow ? <><Animated.View style={[styles.underGlow, { backgroundColor: glowColor, shadowColor: glowColor }]} /><View style={styles.underGlowMask} /></> : null}
+        <Image source={require('../../assets/current-unit-car.png')} resizeMode="contain" style={styles.currentCar} />
+        {flashesRedBlue ? <View style={styles.roofLightBar}><Animated.View style={[styles.roofLight, { backgroundColor: leftEmergencyColor }]} /><Animated.View style={[styles.roofLight, { backgroundColor: rightEmergencyColor }]} /></View> : null}
+      </View>
     </View>
   );
 }
@@ -134,9 +168,16 @@ export default function SquadMapScreen({ partners, userLocation, duty, onClose }
   const [selectedPartner, setSelectedPartner] = useState(null);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
+  const assignedPartnerCallSign = String(duty?.secondOfficerCallSign || '').trim();
+  const assignedPartner = assignedPartnerCallSign ? partners.find((partner) => String(partner.callSign || '').trim() === assignedPartnerCallSign) : null;
+  const assignedPartnerIsWithUnit = Boolean(assignedPartner && validCoordinate(userLocation?.coords)
+    && distanceInMeters(userLocation.coords, assignedPartner.location) <= SHARED_UNIT_DISTANCE_METERS);
+  const mapPartners = assignedPartnerIsWithUnit ? partners.filter((partner) => partner.id !== assignedPartner.id) : partners;
+  const currentCallSign = duty?.callSign;
+  const currentPairedCallSign = assignedPartnerIsWithUnit ? assignedPartnerCallSign : null;
   const coordinates = [
     ...(validCoordinate(userLocation?.coords) ? [{ latitude: userLocation.coords.latitude, longitude: userLocation.coords.longitude }] : []),
-    ...partners.filter((partner) => validCoordinate(partner.location)).map((partner) => ({ latitude: partner.location.latitude, longitude: partner.location.longitude })),
+    ...mapPartners.filter((partner) => validCoordinate(partner.location)).map((partner) => ({ latitude: partner.location.latitude, longitude: partner.location.longitude })),
   ];
   const fitOfficers = () => {
     if (!mapRef.current || !coordinates.length) return;
@@ -155,7 +196,7 @@ export default function SquadMapScreen({ partners, userLocation, duty, onClose }
   useEffect(fitOfficers, [
     userLocation?.coords?.latitude,
     userLocation?.coords?.longitude,
-    partners.map((partner) => `${partner.id}:${partner.location?.latitude}:${partner.location?.longitude}`).join('|'),
+    mapPartners.map((partner) => `${partner.id}:${partner.location?.latitude}:${partner.location?.longitude}`).join('|'),
     landscape,
   ]);
 
@@ -178,10 +219,10 @@ export default function SquadMapScreen({ partners, userLocation, duty, onClose }
       >
         {validCoordinate(userLocation?.coords) ? (
           <Marker coordinate={userLocation.coords} anchor={{ x: 0.5, y: 0.5 }} zIndex={20} tracksViewChanges>
-            <CurrentMarker callSign={duty?.callSign} />
+            <CurrentMarker callSign={currentCallSign} pairedCallSign={currentPairedCallSign} dutyStatus={duty?.status} />
           </Marker>
         ) : null}
-        {partners.filter((partner) => validCoordinate(partner.location)).map((partner, index) => (
+        {mapPartners.filter((partner) => validCoordinate(partner.location)).map((partner, index) => (
           <Marker
             key={partner.id || partner.callSign || `partner-${index}`}
             coordinate={partner.location}
@@ -195,7 +236,7 @@ export default function SquadMapScreen({ partners, userLocation, duty, onClose }
           </Marker>
         ))}
       </MapView>
-      <View pointerEvents="none" style={styles.titleBadge}><Text style={styles.title}>SQUAD OVERVIEW</Text><Text style={styles.subtitle}>{partners.length} PARTNER{partners.length === 1 ? '' : 'S'}</Text></View>
+      <View pointerEvents="none" style={styles.titleBadge}><Text style={styles.title}>SQUAD OVERVIEW</Text><Text style={styles.subtitle}>{mapPartners.length} PARTNER{mapPartners.length === 1 ? '' : 'S'}</Text></View>
       {selectedPartner ? <SelectedLocationCard partner={selectedPartner} onClose={() => setSelectedPartner(null)} /> : null}
       <Pressable accessibilityLabel="Close squad map" accessibilityRole="button" onPress={onClose} style={styles.closeButton}><Text style={styles.closeText}>×</Text></Pressable>
     </View>
@@ -214,6 +255,8 @@ const styles = StyleSheet.create({
   markerIdentity: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   callSign: { color: colors.accent, fontSize: 13, lineHeight: 15, fontWeight: '900', textShadowColor: colors.background, textShadowRadius: 5, textShadowOffset: { width: 0, height: 1 } },
   youLabel: { color: colors.accent, fontSize: 13, lineHeight: 15, fontWeight: '900', textShadowColor: colors.background, textShadowRadius: 5, textShadowOffset: { width: 0, height: 1 } },
+  youLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  callSignSeparator: { color: '#98A3B3', fontSize: 13, lineHeight: 15, fontWeight: '900', textShadowColor: colors.background, textShadowRadius: 5, textShadowOffset: { width: 0, height: 1 } },
   partnerCar: { width: 31, height: 47, zIndex: 2 },
   offlinePartnerCar: { opacity: 0.52 },
   partnerCarWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center' },
@@ -229,7 +272,7 @@ const styles = StyleSheet.create({
   orbitLeft: { left: -4, top: 25 },
   orbitRed: { backgroundColor: '#EF233C', shadowColor: '#EF233C' },
   orbitBlue: { backgroundColor: '#3478F6', shadowColor: '#3478F6' },
-  currentCar: { width: 33, height: 50 },
+  currentCar: { width: 33, height: 50, zIndex: 2 },
   presenceDot: { width: 7, height: 7, borderRadius: 4 },
   selectedLocationCard: { position: 'absolute', left: 14, right: 74, bottom: 14, maxWidth: 390, zIndex: 100, elevation: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(11,17,24,0.96)', paddingHorizontal: 13, paddingVertical: 10 },
   selectedLocationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

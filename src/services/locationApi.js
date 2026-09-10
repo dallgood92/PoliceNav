@@ -39,6 +39,10 @@ export async function publishLocation(location) {
   if (!signedInOfficer?.name) throw new Error('Sign in before sharing your location.');
   const duty = await loadDutyAssignment();
   const notificationsEnabled = await loadPushNotificationsEnabled();
+  const crew = [
+    { name: signedInOfficer.name, callSign: duty.callSign },
+    ...(duty.secondOfficer ? [{ name: duty.secondOfficer, callSign: duty.secondOfficerCallSign }] : []),
+  ].filter((member) => member.callSign).sort((left, right) => String(left.callSign).localeCompare(String(right.callSign), undefined, { numeric: true }));
   const payload = {
     id: await getDeviceId(),
     name: signedInOfficer.name,
@@ -46,8 +50,8 @@ export async function publishLocation(location) {
     callSign: duty.callSign,
     avatarColor: duty.avatarColor,
     dutyStatus: duty.status,
-    occupants: [signedInOfficer.name, duty.secondOfficer].filter(Boolean),
-    occupantCallSigns: [duty.callSign, duty.secondOfficerCallSign].filter(Boolean),
+    occupants: crew.map((member) => member.name),
+    occupantCallSigns: crew.map((member) => member.callSign),
     suppressEmergencyAlerts: !notificationsEnabled,
     location: {
       latitude: location.coords.latitude,

@@ -18,6 +18,8 @@ import { useDutyAssignment } from './src/hooks/useDutyAssignment';
 import { backgroundSharingStatus, startBackgroundSharing } from './src/services/backgroundLocationService';
 import PursuitScreen from './src/screens/PursuitScreen';
 import SquadMapScreen from './src/screens/SquadMapScreen';
+import { collapseSharedUnitPartners, SHARED_UNIT_DISTANCE_METERS } from './src/utils/unitGrouping';
+import { distanceInMeters } from './src/utils/geo';
 
 function createDemoPartners(location) {
   const latitude = location?.coords?.latitude ?? 33.1212;
@@ -58,7 +60,31 @@ export default function App() {
     ? partners.filter((partner) => workspace.visibleDeviceIds.includes(partner.id) && partner.id !== workspace.user.deviceId)
     : partners;
   const demoPartners = useMemo(() => createDemoPartners(live.location), [live.location?.coords?.latitude, live.location?.coords?.longitude]);
-  const displayedPartners = __DEV__ && !visiblePartners.length ? demoPartners : visiblePartners;
+  const assignmentAwareDemoPartners = useMemo(() => demoPartners.map((partner) => {
+    if (!duty.assignment.secondOfficerCallSign || partner.callSign !== duty.assignment.secondOfficerCallSign || !live.location?.coords) return partner;
+    return {
+      ...partner,
+      location: {
+        ...partner.location,
+        latitude: live.location.coords.latitude + 0.000025,
+        longitude: live.location.coords.longitude + 0.000015,
+        timestamp: Date.now(),
+      },
+    };
+  }), [demoPartners, duty.assignment.secondOfficerCallSign, live.location?.coords?.latitude, live.location?.coords?.longitude]);
+  const groupedPartners = useMemo(() => collapseSharedUnitPartners(visiblePartners), [visiblePartners]);
+  const displayedPartners = __DEV__ && !groupedPartners.length ? assignmentAwareDemoPartners : groupedPartners;
+  const assignedPartnerCallSign = String(duty.assignment.secondOfficerCallSign || '').trim();
+  const assignedPartner = assignedPartnerCallSign
+    ? displayedPartners.find((partner) => [partner.callSign, ...(partner.occupantCallSigns || [])]
+        .some((callSign) => String(callSign || '').trim() === assignedPartnerCallSign))
+    : null;
+  const assignedPartnerIsWithUnit = Boolean(assignedPartner && live.location?.coords
+    && distanceInMeters(live.location.coords, assignedPartner.location) <= SHARED_UNIT_DISTANCE_METERS);
+  const homePartners = assignedPartnerIsWithUnit
+    ? displayedPartners.filter((partner) => ![partner.callSign, ...(partner.occupantCallSigns || [])]
+        .some((callSign) => String(callSign || '').trim() === assignedPartnerCallSign))
+    : displayedPartners;
   const selectedPartner = displayedPartners.find((partner) => partner.id === selectedPartnerId)
     || (notificationPartner?.id === selectedPartnerId ? notificationPartner : null);
 
@@ -77,13 +103,12 @@ export default function App() {
   }, [session.officer, pushAlertsEnabled]);
 
   useEffect(() => {
-    if (!session.officer || duty.assignment.callSign || duty.assignment.unitNumber) return;
+    if (!session.officer || duty.assignment.callSign) return;
     duty.setAssignment((current) => ({
       ...current,
       callSign: session.officer.callSign || '',
-      unitNumber: session.officer.unitNumber || '',
     })).catch(() => {});
-  }, [session.officer, duty.assignment.callSign, duty.assignment.unitNumber]);
+  }, [session.officer, duty.assignment.callSign]);
 
   useEffect(() => {
     if (!session.officer || !workspace?.department) return;
@@ -126,8 +151,9 @@ export default function App() {
         ) : selectedPartner ? (
           <PartnerDetailScreen
             partner={selectedPartner}
-            partners={displayedPartners}
+            partners={homePartners}
             duty={duty.assignment}
+            sharedUnit={assignedPartnerIsWithUnit}
             userLocation={live.location}
             fullscreenRequestKey={fullscreenRequestKey}
             onBack={() => { setSelectedPartnerId(null); setNotificationPartner(null); }}
@@ -137,7 +163,8 @@ export default function App() {
         ) : (
           <HomeScreen
             live={live}
-            partners={displayedPartners}
+            partners={homePartners}
+            unitPartners={displayedPartners}
             department={workspace?.department}
             squads={workspace?.squads}
             officer={session.officer}
@@ -148,7 +175,7 @@ export default function App() {
             pushAlertsEnabled={pushAlertsEnabled !== false}
             onPushAlertsChange={(enabled) => {
               setPushAlertsEnabledState(enabled);
-              setPushAlertsEnabled(enabled).catch(() => setPushAlertsEnabledState(!enabled));
+              setPushAlertsEnabled(enabled).catch(() => {});
             }}
             onSelectPartner={(partner) => setSelectedPartnerId(partner.id)}
           />

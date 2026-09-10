@@ -318,6 +318,47 @@ export async function addSquadMember({ squadId, userId, adminUserId }) {
   return squadFromRow({ ...row, member_ids: members.rows.map((item) => item.user_id) });
 }
 
+export async function removeSquadMember({ squadId, userId, adminUserId }) {
+  const result = await database.query(
+    `SELECT s.*, a.role AS admin_role, a.department_id AS admin_department, u.department_id AS member_department
+     FROM squads s JOIN users a ON a.id = $2 JOIN users u ON u.id = $3 WHERE s.id = $1`,
+    [squadId, adminUserId, userId],
+  );
+  const row = result.rows[0];
+  if (!row || row.admin_role !== 'admin' || row.admin_department !== row.department_id || row.member_department !== row.department_id) return null;
+  await database.query('DELETE FROM squad_members WHERE squad_id = $1 AND user_id = $2', [squadId, userId]);
+  const members = await database.query('SELECT user_id FROM squad_members WHERE squad_id = $1 ORDER BY user_id', [squadId]);
+  return squadFromRow({ ...row, member_ids: members.rows.map((item) => item.user_id) });
+}
+
+export async function removeDepartmentMember({ departmentId, userId, adminUserId }) {
+  const client = await database.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT target.device_id, target.role AS target_role, admin.role AS admin_role, admin.department_id AS admin_department
+       FROM users target JOIN users admin ON admin.id = $3
+       WHERE target.id = $2 AND target.department_id = $1 FOR UPDATE OF target`,
+      [departmentId, userId, adminUserId],
+    );
+    const member = result.rows[0];
+    if (!member || member.admin_role !== 'admin' || member.admin_department !== departmentId || member.target_role === 'admin' || userId === adminUserId) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query('DELETE FROM device_push_tokens WHERE device_id = $1', [member.device_id]);
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+    await redis.multi().del(partnerKey(member.device_id)).sRem(PARTNER_IDS_KEY, member.device_id).exec();
+    return { userId, deviceId: member.device_id };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function registerDevice(deviceId, pushToken) {
   await database.query(
     `INSERT INTO device_push_tokens (device_id, push_token, updated_at) VALUES ($1, $2, $3)
