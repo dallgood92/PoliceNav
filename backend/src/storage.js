@@ -326,6 +326,10 @@ export async function registerDevice(deviceId, pushToken) {
   );
 }
 
+export async function unregisterDevice(deviceId) {
+  await database.query('DELETE FROM device_push_tokens WHERE device_id = $1', [deviceId]);
+}
+
 export async function getPushToken(deviceId) {
   const result = await database.query('SELECT push_token FROM device_push_tokens WHERE device_id = $1', [deviceId]);
   return result.rows[0]?.push_token || null;

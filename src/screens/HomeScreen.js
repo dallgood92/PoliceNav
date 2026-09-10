@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import LocationHero from '../components/LocationHero';
 import LocationStats from '../components/LocationStats';
 import PartnerRow from '../components/PartnerRow';
@@ -17,7 +17,7 @@ function MapIcon() {
   );
 }
 
-export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onOpenSquadMap, onSelectPartner }) {
+export default function HomeScreen({ live, partners, department, squads, officer, duty, onDutyChange, onManageDepartment, onOpenSquadMap, onSelectPartner, pushAlertsEnabled, onPushAlertsChange }) {
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,6 +54,10 @@ export default function HomeScreen({ live, partners, department, squads, officer
         <Pressable style={[styles.scrim, landscape && styles.scrimLandscape]} onPress={() => setMenuOpen(false)}><Pressable style={[styles.menu, landscape && styles.menuLandscape]} onPress={() => {}}>
           <Text style={styles.menuTitle}>SQUADNAV</Text>
           {department ? <><Text style={styles.department}>{department.name}</Text><Text style={styles.squads}>{squads?.map((squad) => squad.name).join(' · ') || 'Awaiting squad assignment'}</Text></> : null}
+          <View style={styles.notificationRow}>
+            <View style={styles.notificationCopy}><Text style={styles.notificationTitle}>PUSH NOTIFICATIONS</Text><Text style={styles.notificationHint}>{pushAlertsEnabled ? 'Cover and pursuit alerts are active' : 'Test mode — no push alerts sent or received'}</Text></View>
+            <Switch accessibilityLabel="Push notifications" value={pushAlertsEnabled} onValueChange={onPushAlertsChange} trackColor={{ false: colors.border, true: colors.success }} thumbColor={colors.text} />
+          </View>
           {department ? <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); onManageDepartment(); }}><Text style={styles.menuActionText}>MANAGE DEPARTMENT</Text></Pressable> : null}
           <Pressable style={styles.closeAction} onPress={() => setMenuOpen(false)}><Text style={styles.closeText}>CLOSE</Text></Pressable>
         </Pressable></Pressable>
@@ -72,6 +76,7 @@ const styles = StyleSheet.create({
   mapFoldMiddle: { borderLeftWidth: 2, borderRightWidth: 2, transform: [{ skewY: '12deg' }] },
   mapFoldRight: { width: 7, borderRightWidth: 2, transform: [{ skewY: '-12deg' }] },
   mapRouteDot: { position: 'absolute', right: 3, top: 4, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent },
+  notificationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, padding: 12, borderRadius: 9, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background }, notificationCopy: { flex: 1 }, notificationTitle: { color: colors.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }, notificationHint: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 3 },
   body: { flex: 1 }, bodyLandscape: { flexDirection: 'row', gap: 10 }, locationPanel: { flex: 1, justifyContent: 'center' }, controlsPanel: { flex: 1, justifyContent: 'center' }, controlsPanelLandscape: { justifyContent: 'flex-start', paddingTop: 2 }, verticalRule: { width: 1, marginVertical: 8, backgroundColor: colors.border },
   notice: { color: colors.warning, backgroundColor: colors.panel, fontSize: 11, fontWeight: '700', marginHorizontal: 6, marginTop: 5, padding: 7, borderRadius: 6 }, partnerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 32, marginHorizontal: 4, marginTop: 5 }, sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '900', letterSpacing: 1.2 },
   partnerCount: { color: colors.muted, fontSize: 11, fontWeight: '900' }, partnerScroller: { flexShrink: 1 }, partnerScrollerLandscape: { flex: 1 }, partnerList: { minHeight: 88, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }, partnerListLandscape: { minHeight: 0, flexDirection: 'column', flexWrap: 'nowrap' }, emptyPartners: { width: '100%', color: colors.muted, backgroundColor: colors.panel, borderRadius: 9, padding: 15, textAlign: 'center', fontSize: 12 },

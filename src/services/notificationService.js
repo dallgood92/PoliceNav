@@ -1,15 +1,19 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { createNavigationWatch, getLatestPartner, registerPushToken } from './locationApi';
+import { createNavigationWatch, getLatestPartner, registerPushToken, unregisterPushToken } from './locationApi';
+import { loadPushNotificationsEnabled, pushNotificationsEnabled, savePushNotificationsEnabled } from './notificationPreferenceService';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async () => {
+    await loadPushNotificationsEnabled();
+    return {
+      shouldShowBanner: pushNotificationsEnabled(),
+      shouldShowList: pushNotificationsEnabled(),
+      shouldPlaySound: pushNotificationsEnabled(),
+      shouldSetBadge: false,
+    };
+  },
 });
 
 export async function configureAlertAudio() {
@@ -37,11 +41,25 @@ async function pushToken() {
 }
 
 export async function registerForCoverAlerts() {
+  if (!await loadPushNotificationsEnabled()) {
+    await unregisterPushToken();
+    return;
+  }
   const token = await pushToken();
   await registerPushToken(token);
 }
 
+export async function setPushAlertsEnabled(enabled) {
+  await savePushNotificationsEnabled(enabled);
+  if (enabled) await registerForCoverAlerts();
+  else {
+    await unregisterPushToken();
+    await Notifications.dismissAllNotificationsAsync();
+  }
+}
+
 export async function armMovingPartnerAlert(partner, provider) {
+  if (!await loadPushNotificationsEnabled()) return;
   const token = await pushToken();
   await registerPushToken(token);
   await createNavigationWatch(partner.id, partner.location, provider);
@@ -69,6 +87,7 @@ async function handleDirectionsNotification(notification, onOpenDirections) {
 export function observeDirectionNotifications(onOpenDirections) {
   let lastHandledId = null;
   const handle = async (response) => {
+    if (!await loadPushNotificationsEnabled()) return;
     const identifier = response?.notification?.request?.identifier;
     if (!identifier || identifier === lastHandledId) return;
     lastHandledId = identifier;

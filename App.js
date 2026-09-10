@@ -7,7 +7,8 @@ import PartnerDetailScreen from './src/screens/PartnerDetailScreen';
 import { usePartners } from './src/hooks/usePartners';
 import { useLiveLocation } from './src/hooks/useLiveLocation';
 import { colors } from './src/theme/colors';
-import { configureAlertAudio, observeDirectionNotifications, registerForCoverAlerts } from './src/services/notificationService';
+import { configureAlertAudio, observeDirectionNotifications, registerForCoverAlerts, setPushAlertsEnabled } from './src/services/notificationService';
+import { loadPushNotificationsEnabled } from './src/services/notificationPreferenceService';
 import { useOfficerSession } from './src/hooks/useOfficerSession';
 import { useDepartmentWorkspace } from './src/hooks/useDepartmentWorkspace';
 import { isLocationBackendConfigured, publishLocation } from './src/services/locationApi';
@@ -43,6 +44,7 @@ export default function App() {
   const [fullscreenRequestKey, setFullscreenRequestKey] = useState(0);
   const [showDepartment, setShowDepartment] = useState(false);
   const [showSquadMap, setShowSquadMap] = useState(false);
+  const [pushAlertsEnabled, setPushAlertsEnabledState] = useState(null);
   const lastForegroundPublish = useRef(0);
   const partnerState = usePartners();
   const partners = partnerState.partners;
@@ -68,9 +70,11 @@ export default function App() {
 
   useEffect(() => { configureAlertAudio().catch(() => {}); }, []);
 
+  useEffect(() => { loadPushNotificationsEnabled().then(setPushAlertsEnabledState).catch(() => {}); }, []);
+
   useEffect(() => {
-    if (session.officer) registerForCoverAlerts().catch(() => {});
-  }, [session.officer]);
+    if (session.officer && pushAlertsEnabled !== null) registerForCoverAlerts().catch(() => {});
+  }, [session.officer, pushAlertsEnabled]);
 
   useEffect(() => {
     if (!session.officer || duty.assignment.callSign || duty.assignment.unitNumber) return;
@@ -141,6 +145,11 @@ export default function App() {
             onDutyChange={changeDuty}
             onManageDepartment={() => setShowDepartment(true)}
             onOpenSquadMap={() => setShowSquadMap(true)}
+            pushAlertsEnabled={pushAlertsEnabled !== false}
+            onPushAlertsChange={(enabled) => {
+              setPushAlertsEnabledState(enabled);
+              setPushAlertsEnabled(enabled).catch(() => setPushAlertsEnabledState(!enabled));
+            }}
             onSelectPartner={(partner) => setSelectedPartnerId(partner.id)}
           />
         )}

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadDutyAssignment } from './dutyService';
+import { loadPushNotificationsEnabled } from './notificationPreferenceService';
 
 const API_URL = process.env.EXPO_PUBLIC_LOCATION_API_URL?.replace(/\/$/, '');
 const API_TOKEN = process.env.EXPO_PUBLIC_LOCATION_API_TOKEN;
@@ -37,6 +38,7 @@ export async function publishLocation(location) {
   try { signedInOfficer = savedSession ? JSON.parse(savedSession) : null; } catch {}
   if (!signedInOfficer?.name) throw new Error('Sign in before sharing your location.');
   const duty = await loadDutyAssignment();
+  const notificationsEnabled = await loadPushNotificationsEnabled();
   const payload = {
     id: await getDeviceId(),
     name: signedInOfficer.name,
@@ -46,6 +48,7 @@ export async function publishLocation(location) {
     dutyStatus: duty.status,
     occupants: [signedInOfficer.name, duty.secondOfficer].filter(Boolean),
     occupantCallSigns: [duty.callSign, duty.secondOfficerCallSign].filter(Boolean),
+    suppressEmergencyAlerts: !notificationsEnabled,
     location: {
       latitude: location.coords.latitude,
       longitude: location.coords.longitude,
@@ -91,6 +94,13 @@ export async function registerPushToken(pushToken) {
   return apiRequest('/devices/register', {
     method: 'POST',
     body: JSON.stringify({ deviceId: await getDeviceId(), pushToken }),
+  });
+}
+
+export async function unregisterPushToken() {
+  return apiRequest('/devices/unregister', {
+    method: 'POST',
+    body: JSON.stringify({ deviceId: await getDeviceId() }),
   });
 }
 

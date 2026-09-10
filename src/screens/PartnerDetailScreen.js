@@ -215,6 +215,8 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
   useEffect(() => {
     if (!mapFullscreen || !userLocation?.coords) {
       setNearbyHouseNumbers([]);
+      houseNumberLookupRef.current.location = null;
+      houseNumberLookupRef.current.request += 1;
       return;
     }
     const center = userLocation.coords;
@@ -222,7 +224,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
     houseNumberLookupRef.current.location = center;
     const request = houseNumberLookupRef.current.request + 1;
     houseNumberLookupRef.current.request = request;
-    lookupNearbyDentonCountyAddresses(center.latitude, center.longitude)
+    lookupNearbyDentonCountyAddresses(center.latitude, center.longitude, 340)
       .then((addresses) => {
         if (houseNumberLookupRef.current.request === request && addresses.length) {
           setNearbyHouseNumbers((current) => {
@@ -283,7 +285,7 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
       ? userCoords.heading
       : bearingBetween(userCoords, forwardRoutePoint || selectedPartnerCoords);
     if (mapFullscreen) {
-      const altitude = distance < 500 ? 155 : distance < 1_600 ? 185 : 220;
+      const altitude = distance < 500 ? 105 : distance < 1_600 ? 130 : 160;
       mapRef.current.animateCamera({
         center: {
           latitude: userCoords.latitude,
@@ -417,12 +419,14 @@ export default function PartnerDetailScreen({ partner, partners, duty, userLocat
               </Marker>
             ))}
           </MapView>
-          <View style={styles.liveMapBadge}>
-            <View style={[styles.presenceDot, styles[`${presence.quality}Dot`]]} />
-            <Text style={[styles.liveMapText, presence.online ? styles.partnerOnlineText : styles.partnerOfflineText]}>
-              {presence.online ? 'PARTNER ONLINE' : `PARTNER ${presence.label.toUpperCase()}`}
-            </Text>
-          </View>
+          {!mapFullscreen ? (
+            <View style={styles.liveMapBadge}>
+              <View style={[styles.presenceDot, styles[`${presence.quality}Dot`]]} />
+              <Text style={[styles.liveMapText, presence.online ? styles.partnerOnlineText : styles.partnerOfflineText]}>
+                {presence.online ? 'PARTNER ONLINE' : `PARTNER ${presence.label.toUpperCase()}`}
+              </Text>
+            </View>
+          ) : null}
           {routeHealth === 'throttled' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE THROTTLED · MAY BE OUTDATED</Text></View> : null}
           {routeHealth === 'unavailable' ? <View style={styles.routeWarning}><Text style={styles.routeWarningText}>ROUTE UPDATE DELAYED</Text></View> : null}
           {!autoFrame ? <Pressable accessibilityRole="button" accessibilityLabel="Resume following both units" onPress={resumeAutoFrame} style={styles.followButton}><Text style={styles.followText}>FOLLOW</Text></Pressable> : null}

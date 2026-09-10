@@ -132,6 +132,10 @@ const server = createServer(async (req, res) => {
       if (!body?.deviceId || !/^(Exponent|Expo)PushToken\[[^\]]+\]$/.test(body?.pushToken || '')) return reply(res, 400, { error: 'Invalid device registration.' });
       await store.registerDevice(body.deviceId, body.pushToken); return reply(res, 200, { registered: true });
     }
+    if (req.method === 'POST' && url.pathname === '/devices/unregister') {
+      if (!body?.deviceId) return reply(res, 400, { error: 'Invalid device registration.' });
+      await store.unregisterDevice(body.deviceId); return reply(res, 200, { registered: false });
+    }
     if (req.method === 'POST' && url.pathname === '/navigation-watches') {
       const valid = body?.watcherDeviceId && body?.partnerId && validLocation(body?.anchorLocation) && ['apple', 'google'].includes(body?.provider) && await store.getPushToken(body.watcherDeviceId);
       if (!valid) return reply(res, 400, { error: 'Invalid navigation watch.' });
@@ -147,8 +151,8 @@ const server = createServer(async (req, res) => {
       const previous = await store.getPartner(body.id);
       const partner = { id: body.id, name: body.name, unit: body.unit, callSign: body.callSign || null, avatarColor: '#059669', dutyStatus: body.dutyStatus || 'available', occupants: Array.isArray(body.occupants) ? body.occupants.slice(0, 2) : [body.name], occupantCallSigns: Array.isArray(body.occupantCallSigns) ? body.occupantCallSigns.slice(0, 2) : [body.callSign].filter(Boolean), connection: { online: true, quality: 'good', lastSeenAt: now }, location: body.location };
       await store.savePartner(partner);
-      if (partner.dutyStatus === 'cover_requested' && previous?.dutyStatus !== 'cover_requested') void sendEmergencyAlerts(partner, 'cover-request');
-      if (partner.dutyStatus === 'pursuit' && previous?.dutyStatus !== 'pursuit') void sendEmergencyAlerts(partner, 'pursuit');
+      if (!body.suppressEmergencyAlerts && partner.dutyStatus === 'cover_requested' && previous?.dutyStatus !== 'cover_requested') void sendEmergencyAlerts(partner, 'cover-request');
+      if (!body.suppressEmergencyAlerts && partner.dutyStatus === 'pursuit' && previous?.dutyStatus !== 'pursuit') void sendEmergencyAlerts(partner, 'pursuit');
       return reply(res, 202, { accepted: true, serverTimestamp: now });
     }
     return res.writeHead(404).end();
