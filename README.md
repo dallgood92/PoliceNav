@@ -23,7 +23,7 @@ A deliberately simple, glanceable iOS/Android Expo app for showing an officer's 
 - A no-scroll operational dashboard with portrait and landscape layouts, a compact Apple/Google Maps preference, two-column portrait partner tiles, and slim landscape partner rows
 - Partner rosters sort automatically by pursuit, cover request, traffic stop, then clear; the partner area scrolls independently only when the roster exceeds the available space
 - Full-screen pursuit mode emphasizing the current street, block, heading, locality, and upcoming/nearest cross street; squad partners see a restrained red/blue pursuit pulse
-- Six development-only simulated partners appear when no live partners are available, making the compact all-unit layouts, status styling, map, and detail view testable without adding production data
+- Three development-only simulated partners appear when no live partners are available, making the compact all-unit layouts, status styling, map, and detail view testable without adding production data
 - Denton County/TxDOT highway reference-marker lookup when the device is on a recognized highway
 - Service boundaries ready for a future API/WebSocket implementation
 

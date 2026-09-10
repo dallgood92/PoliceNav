@@ -155,13 +155,11 @@ export default function PartnerDetailScreen({ partner, partners, duty, sharedUni
         compassHeading: null,
       });
   const currentUnit = `Unit ${duty?.unitNumber || ''}`;
-  const normalizedCurrentUnit = currentUnit.replace(/\s+/g, '').toLowerCase();
   const normalizedCurrentCallSign = String(duty?.callSign || '').trim().toLowerCase();
   const mapPartners = userLocation?.coords
     ? (partners || []).filter((item) => {
-        const sameUnit = duty?.unitNumber && String(item.unit || '').replace(/\s+/g, '').toLowerCase() === normalizedCurrentUnit;
         const sameCallSign = normalizedCurrentCallSign && crewCallSigns(item).some((callSign) => String(callSign).trim().toLowerCase() === normalizedCurrentCallSign);
-        return !sameUnit && !sameCallSign;
+        return !sameCallSign;
       })
     : (partners || []);
   const unitCallSigns = crewCallSigns(partner).join(' | ');
@@ -574,8 +572,8 @@ const styles = StyleSheet.create({
   fullscreenAddressLabel: { color: colors.muted, fontSize: 7, lineHeight: 9, fontWeight: '900', letterSpacing: 0.75 },
   fullscreenPresenceText: { fontSize: 7, lineHeight: 9, fontWeight: '900', letterSpacing: 0.5 },
   fullscreenAddressText: { color: colors.accent, fontSize: 12, lineHeight: 15, fontWeight: '900', letterSpacing: 0.25, marginTop: 2 },
-  houseNumberBadge: { borderRadius: 3, borderWidth: 1, borderColor: 'rgba(255,213,74,0.75)', backgroundColor: 'rgba(11,17,24,0.94)', paddingHorizontal: 4, paddingVertical: 2 },
-  houseNumberText: { color: colors.accent, fontSize: 9, lineHeight: 11, fontWeight: '900', textShadowColor: '#000000', textShadowRadius: 2 },
+  houseNumberBadge: { alignItems: 'center', justifyContent: 'center', minWidth: 18, minHeight: 14 },
+  houseNumberText: { color: colors.accent, fontSize: 11, lineHeight: 13, fontWeight: '900', textAlign: 'center', textShadowColor: '#05080D', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 } },
   fullscreenMapFrame: { flex: 1, height: '100%', marginTop: 0, borderRadius: 0, borderWidth: 0 },
   fullscreenButton: { position: 'absolute', right: 9, bottom: 9, width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(11,17,24,0.92)' },
   fullscreenButtonText: { color: colors.accent, fontSize: 25, lineHeight: 27, fontWeight: '900' },

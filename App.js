@@ -25,12 +25,9 @@ function createDemoPartners(location) {
   const latitude = location?.coords?.latitude ?? 33.1212;
   const longitude = location?.coords?.longitude ?? -97.1834;
   const samples = [
-    ['Jordan Martinez', '52', '742', 'pursuit', '#059669', 0.018, -0.014],
-    ['Casey Nguyen', '31', '618', 'traffic_stop', '#059669', -0.017, 0.016],
-    ['Taylor Brooks', '18', '405', 'cover_requested', '#059669', 0.012, 0.019],
-    ['Morgan Reed', '63', '296', 'available', '#059669', -0.021, -0.012],
-    ['Avery Patel', '24', '531', 'available', '#059669', 0.004, -0.024],
-    ['Cameron Lewis', '39', '684', 'available', '#059669', 0.024, 0.006],
+    ['Jared Ramm', '43', '864', 'pursuit', '#059669', 0.018, -0.014],
+    ['Jeremy Rogers', '47', '861', 'traffic_stop', '#059669', -0.017, 0.016],
+    ['Trey Humphries', '46', '874', 'cover_requested', '#059669', 0.012, 0.019],
   ];
   return samples.map(([name, unit, callSign, dutyStatus, avatarColor, latitudeOffset, longitudeOffset], index) => ({
     id: `demo-partner-${index + 1}`, name, unit: `Unit ${unit}`, callSign, avatarColor, dutyStatus,
@@ -66,8 +63,9 @@ export default function App() {
       ...partner,
       location: {
         ...partner.location,
-        latitude: live.location.coords.latitude + 0.000025,
-        longitude: live.location.coords.longitude + 0.000015,
+        // Keep the assigned 861 demo officer on Artesian Drive beside house 701.
+        latitude: partner.callSign === '861' ? 33.098234217492376 : live.location.coords.latitude - 0.000275,
+        longitude: partner.callSign === '861' ? -97.1875015 : live.location.coords.longitude,
         timestamp: Date.now(),
       },
     };
