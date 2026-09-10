@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { upsertOfficer } from '../services/departmentService';
 import { getDeviceId } from '../services/locationApi';
 import { loadDutyAssignment, saveDutyAssignment } from '../services/dutyService';
+import { stopBackgroundSharing } from '../services/backgroundLocationService';
 
 const SESSION_KEY = '@blockwatch/officer-session';
 const SAVED_PROFILE_KEY = '@blockwatch/saved-officer-profile';
@@ -65,6 +66,9 @@ export function useOfficerSession() {
   };
 
   const signOut = async () => {
+    // Closing the app leaves the background task active. An explicit sign-out
+    // stops it before removing the officer session.
+    await stopBackgroundSharing();
     if (officer) {
       const rememberedProfile = {
         firstName: officer.firstName || officer.name?.split(' ')[0] || '',
